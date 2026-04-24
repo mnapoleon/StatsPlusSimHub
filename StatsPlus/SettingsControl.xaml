@@ -211,7 +211,7 @@
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Car" Binding="{Binding CarModel}" Width="180" />
                                                 <DataGridTextColumn Header="Track" Binding="{Binding TrackName}" Width="120" />
-                                                <DataGridTextColumn Header="Variation" Binding="{Binding TrackNameWithConfig}" Width="180" />
+                                                <DataGridTextColumn Header="Variation" Binding="{Binding TrackNameWithConfigDisplay}" Width="180" />
                                                 <DataGridTextColumn Header="Laps" Binding="{Binding LapCount}" Width="60" />
                                                 <DataGridTextColumn Header="Best" Binding="{Binding BestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="90" />
                                                 <DataGridTextColumn Header="Last UTC" Binding="{Binding LastRecordedUtc, StringFormat={}{0:u}}" Width="150" />
