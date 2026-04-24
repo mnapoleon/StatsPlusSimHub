@@ -8,6 +8,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using GameReaderCommon;
 using Newtonsoft.Json;
 using SimHub.Plugins;
@@ -17,7 +19,7 @@ namespace StatsPlus
     [PluginName("StatsPlus")]
     [PluginDescription("Records lap and sector times by game, car, and track.")]
     [PluginAuthor("StatsPlus")]
-    public class StatsPlusPlugin : IPlugin, IDataPlugin, IWPFSettings, INotifyPropertyChanged
+    public class StatsPlusPlugin : IPlugin, IDataPlugin, IWPFSettingsV2, INotifyPropertyChanged
     {
         private const string SettingsFileName = "StatsPlus.settings.json";
         private const string DataFileName = "StatsPlus.laps.json";
@@ -26,7 +28,9 @@ namespace StatsPlus
         private bool _hasLoggedDataError;
         private string _settingsPath = string.Empty;
         private string _databasePath = string.Empty;
+        private string _acTrackMapPath = string.Empty;
         private LapDatabase _database = new LapDatabase();
+        private Dictionary<string, string> _assettoCorsaTrackMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private double _sessionBestLapSeconds;
         private double _lastLapSeconds;
         private int _sessionLapCount;
@@ -49,12 +53,17 @@ namespace StatsPlus
         private StoredTrackSummary _selectedTrackSummary;
         private RecordedLapView _selectedLap;
         private GameHistoryTab _selectedGameHistoryTab;
+        private ImageSource _pictureIcon;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         public PluginManager PluginManager { get; set; }
 
         public PluginSettings Settings { get; private set; } = new PluginSettings();
+
+        public ImageSource PictureIcon => _pictureIcon ?? (_pictureIcon = CreatePictureIcon());
+
+        public string LeftMenuTitle => "StatsPlus";
 
         public ObservableCollection<GameHistoryTab> GameHistoryTabs { get; } = new ObservableCollection<GameHistoryTab>();
 
@@ -64,13 +73,13 @@ namespace StatsPlus
 
         public string SelectedTrackCaption => SelectedTrackSummary == null
             ? "Select a track row above to inspect recorded laps."
-            : $"{SelectedTrackSummary.GameName} / {SelectedTrackSummary.CarModel} / {SelectedTrackSummary.TrackNameWithConfig}";
+            : $"{SelectedTrackSummary.GameName} / {SelectedTrackSummary.CarModel} / {SelectedTrackSummary.TrackNameWithConfigDisplay}";
 
         public bool HasSelectedLap => SelectedLap != null;
 
         public bool HasSelectedGameHistoryTab => SelectedGameHistoryTab != null;
 
-        public string CurrentContext => $"{CurrentGameName} / {CurrentCarModel} / {CurrentTrackNameWithConfig}";
+        public string CurrentContext => $"{CurrentGameName} / {CurrentCarModel} / {GetDisplayTrackNameWithConfig(CurrentGameName, CurrentTrackNameWithConfig)}";
 
         public string CurrentGameName
         {
@@ -297,7 +306,9 @@ namespace StatsPlus
             PluginManager = pluginManager;
             _settingsPath = pluginManager.GetCommonStoragePath(SettingsFileName);
             _databasePath = pluginManager.GetCommonStoragePath(DataFileName);
+            _acTrackMapPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ac_track_id_map.json");
             Settings = LoadSettings();
+            _assettoCorsaTrackMap = LoadAssettoCorsaTrackMap();
             _database = LoadDatabase();
 
             pluginManager.AddProperty("StatsPlus.Version", GetType(), Version);
@@ -361,7 +372,7 @@ namespace StatsPlus
                 if (Settings.PublishTrackInfo)
                 {
                     pluginManager.SetPropertyValue("StatsPlus.GameName", GetType(), gameName);
-                    pluginManager.SetPropertyValue("StatsPlus.TrackName", GetType(), trackNameWithConfig);
+                    pluginManager.SetPropertyValue("StatsPlus.TrackName", GetType(), GetDisplayTrackNameWithConfig(gameName, trackNameWithConfig));
                     pluginManager.SetPropertyValue("StatsPlus.CarModel", GetType(), carModel);
                 }
 
@@ -605,6 +616,26 @@ namespace StatsPlus
             }
         }
 
+        private Dictionary<string, string> LoadAssettoCorsaTrackMap()
+        {
+            try
+            {
+                if (!File.Exists(_acTrackMapPath))
+                {
+                    return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                }
+
+                string json = File.ReadAllText(_acTrackMapPath, Encoding.UTF8);
+                Dictionary<string, string> map = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+                return map ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn($"StatsPlus - Failed to load AC track map: {ex.Message}");
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
         private void SaveDatabase()
         {
             try
@@ -831,6 +862,7 @@ namespace StatsPlus
                             CarModel = carEntry.Key,
                             TrackName = track.TrackName,
                             TrackNameWithConfig = string.IsNullOrWhiteSpace(track.TrackNameWithConfig) ? trackEntry.Key : track.TrackNameWithConfig,
+                            TrackNameWithConfigDisplay = GetDisplayTrackNameWithConfig(gameEntry.Key, string.IsNullOrWhiteSpace(track.TrackNameWithConfig) ? trackEntry.Key : track.TrackNameWithConfig),
                             LapCount = track.Laps.Count,
                             BestLapSeconds = bestLap,
                             LastRecordedUtc = track.LastUpdatedUtc
@@ -1017,6 +1049,7 @@ namespace StatsPlus
                         CarModel = trackBucket.CarModel,
                         TrackName = trackBucket.TrackName,
                         TrackNameWithConfig = trackBucket.TrackNameWithConfig,
+                        TrackNameWithConfigDisplay = GetDisplayTrackNameWithConfig(trackBucket.GameName, trackBucket.TrackNameWithConfig),
                         LapNumber = lap.LapNumber,
                         LapTimeSeconds = lap.LapTimeSeconds,
                         Sector1Seconds = lap.Sector1Seconds,
@@ -1042,6 +1075,34 @@ namespace StatsPlus
         private void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private static ImageSource CreatePictureIcon()
+        {
+            BitmapImage image = new BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri("pack://application:,,,/StatsPlus;component/assets/statsplus-icon-24.png", UriKind.Absolute);
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+
+        private string GetDisplayTrackNameWithConfig(string gameName, string rawTrackNameWithConfig)
+        {
+            if (!IsAssettoCorsaGame(gameName))
+            {
+                return rawTrackNameWithConfig;
+            }
+
+            if (string.IsNullOrWhiteSpace(rawTrackNameWithConfig))
+            {
+                return rawTrackNameWithConfig;
+            }
+
+            return _assettoCorsaTrackMap.TryGetValue(rawTrackNameWithConfig, out string mappedName)
+                ? mappedName
+                : rawTrackNameWithConfig;
         }
     }
 }

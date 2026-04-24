@@ -62,6 +62,8 @@ namespace StatsPlus
 
         public string TrackNameWithConfig { get; set; } = string.Empty;
 
+        public string TrackNameWithConfigDisplay { get; set; } = string.Empty;
+
         public int LapCount { get; set; }
 
         public double BestLapSeconds { get; set; }
@@ -78,6 +80,8 @@ namespace StatsPlus
         public string TrackName { get; set; } = string.Empty;
 
         public string TrackNameWithConfig { get; set; } = string.Empty;
+
+        public string TrackNameWithConfigDisplay { get; set; } = string.Empty;
 
         public int LapNumber { get; set; }
 

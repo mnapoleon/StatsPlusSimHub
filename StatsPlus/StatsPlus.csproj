@@ -41,6 +41,16 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="assets\statsplus-icon-24.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="ac_track_id_map.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <Target Name="CopyPluginToSimHub" AfterTargets="Build" Condition="Exists('$(SimHubInstallPath)')">
     <Message Text="Copying StatsPlus build output to $(SimHubInstallPath)" Importance="High" />
     <Copy SourceFiles="$(TargetPath)"
@@ -50,5 +60,9 @@
           DestinationFolder="$(SimHubInstallPath)"
           SkipUnchangedFiles="false"
           Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+    <Copy SourceFiles="$(ProjectDir)ac_track_id_map.json"
+          DestinationFolder="$(SimHubInstallPath)"
+          SkipUnchangedFiles="false"
+          Condition="Exists('$(ProjectDir)ac_track_id_map.json')" />
   </Target>
 </Project>
