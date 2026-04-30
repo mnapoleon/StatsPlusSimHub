@@ -6,6 +6,7 @@ using System.Linq;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -54,6 +55,7 @@ namespace StatsPlus
         private RecordedLapView _selectedLap;
         private GameHistoryTab _selectedGameHistoryTab;
         private ImageSource _pictureIcon;
+        private readonly HashSet<string> _registeredPersonalBestProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -328,6 +330,7 @@ namespace StatsPlus
             pluginManager.AddProperty("StatsPlus.LastSector3Time", GetType(), 0.0);
             pluginManager.AddProperty("StatsPlus.DataFilePath", GetType(), _databasePath);
 
+            RefreshPersonalBestProperties(pluginManager);
             RefreshStoredTrackSummaries();
             SimHub.Logging.Current.Info($"StatsPlus v{Version} - Initialised");
         }
@@ -537,6 +540,7 @@ namespace StatsPlus
             SaveDatabase();
             LoadSelectedTrackLaps(SelectedLap.TimestampUtc);
             RefreshStoredTrackSummaries();
+            RefreshPersonalBestProperties(PluginManager);
 
             if (IsSameContext(SelectedLap.GameName, SelectedLap.CarModel, SelectedLap.TrackName, SelectedLap.TrackNameWithConfig))
             {
@@ -570,6 +574,7 @@ namespace StatsPlus
 
             SelectedLap = null;
             SelectedTrackSummary = null;
+            RefreshPersonalBestProperties(PluginManager);
             RefreshStoredTrackSummaries();
         }
 
@@ -591,6 +596,7 @@ namespace StatsPlus
             SelectedLap = null;
             SelectedTrackSummary = null;
             SelectedGameHistoryTab = null;
+            RefreshPersonalBestProperties(PluginManager);
             RefreshStoredTrackSummaries();
         }
 
@@ -794,6 +800,7 @@ namespace StatsPlus
             track.LastUpdatedUtc = DateTime.UtcNow;
             track.Laps.Add(lap);
             SaveDatabase();
+            RefreshPersonalBestProperties(PluginManager);
         }
 
         private TrackBucket GetOrCreateTrackBucket(string gameName, string carModel, string trackName, string trackNameWithConfig)
@@ -870,6 +877,85 @@ namespace StatsPlus
                     }
                 }
             }
+        }
+
+        private void RefreshPersonalBestProperties(PluginManager pluginManager)
+        {
+            if (pluginManager == null)
+            {
+                return;
+            }
+
+            Dictionary<string, double> personalBestValues = BuildPersonalBestPropertyValues();
+
+            foreach (string propertyName in _registeredPersonalBestProperties.Except(personalBestValues.Keys).ToList())
+            {
+                pluginManager.SetPropertyValue(propertyName, GetType(), 0.0);
+            }
+
+            foreach (KeyValuePair<string, double> property in personalBestValues)
+            {
+                EnsurePersonalBestPropertyRegistered(pluginManager, property.Key);
+                pluginManager.SetPropertyValue(property.Key, GetType(), property.Value);
+            }
+        }
+
+        private Dictionary<string, double> BuildPersonalBestPropertyValues()
+        {
+            var personalBestValues = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (KeyValuePair<string, GameBucket> gameEntry in _database.Games)
+            {
+                foreach (KeyValuePair<string, CarBucket> carEntry in gameEntry.Value.Cars)
+                {
+                    foreach (KeyValuePair<string, TrackBucket> trackEntry in carEntry.Value.Tracks)
+                    {
+                        TrackBucket track = trackEntry.Value;
+                        string trackVariation = string.IsNullOrWhiteSpace(track.TrackNameWithConfig) ? trackEntry.Key : track.TrackNameWithConfig;
+                        double bestLap = track.Laps
+                            .Where(lap => lap.IsValid && lap.LapTimeSeconds > 0)
+                            .Select(lap => lap.LapTimeSeconds)
+                            .DefaultIfEmpty(0.0)
+                            .Min();
+
+                        if (bestLap <= 0)
+                        {
+                            continue;
+                        }
+
+                        personalBestValues[BuildPersonalBestPropertyName(gameEntry.Key, carEntry.Key, trackVariation)] = bestLap;
+                    }
+                }
+            }
+
+            return personalBestValues;
+        }
+
+        private void EnsurePersonalBestPropertyRegistered(PluginManager pluginManager, string propertyName)
+        {
+            if (_registeredPersonalBestProperties.Contains(propertyName))
+            {
+                return;
+            }
+
+            pluginManager.AddProperty(propertyName, GetType(), 0.0);
+            _registeredPersonalBestProperties.Add(propertyName);
+        }
+
+        private static string BuildPersonalBestPropertyName(string gameName, string carModel, string trackVariation)
+        {
+            return $"StatsPlus.PersonalBest.{SanitizePropertySegment(gameName)}.{SanitizePropertySegment(carModel)}.{SanitizePropertySegment(trackVariation)}";
+        }
+
+        private static string SanitizePropertySegment(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "Unknown";
+            }
+
+            string sanitized = Regex.Replace(value.Trim(), @"[^A-Za-z0-9]+", "_").Trim('_');
+            return string.IsNullOrWhiteSpace(sanitized) ? "Unknown" : sanitized;
         }
 
         private void PublishLapProperties(PluginManager pluginManager)

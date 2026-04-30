@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <OutputType>Library</OutputType>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Affinity</AssemblyName>
+    <RootNamespace>Affinity</RootNamespace>
+    <SimHubInstallPath Condition="'$(SimHubInstallPath)' == ''">C:\Program Files (x86)\SimHub\</SimHubInstallPath>
+    <StartAction>Program</StartAction>
+    <StartProgram>$(SimHubInstallPath)SimHubWPF.exe</StartProgram>
+    <StartWorkingDirectory>$(SimHubInstallPath)</StartWorkingDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="SimHub.Plugins">
+      <HintPath>C:\Program Files (x86)\SimHub\SimHub.Plugins.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="GameReaderCommon">
+      <HintPath>C:\Program Files (x86)\SimHub\GameReaderCommon.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="MahApps.Metro">
+      <HintPath>C:\Program Files (x86)\SimHub\MahApps.Metro.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>C:\Program Files (x86)\SimHub\Newtonsoft.Json.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SimHub.Logging">
+      <HintPath>C:\Program Files (x86)\SimHub\SimHub.Logging.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="log4net">
+      <HintPath>C:\Program Files (x86)\SimHub\log4net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\StatsPlus\ac_track_id_map.json" Link="ac_track_id_map.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="CopyPluginToSimHub" AfterTargets="Build" Condition="Exists('$(SimHubInstallPath)')">
+    <Message Text="Copying Affinity build output to $(SimHubInstallPath)" Importance="High" />
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFolder="$(SimHubInstallPath)"
+          SkipUnchangedFiles="false" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb"
+          DestinationFolder="$(SimHubInstallPath)"
+          SkipUnchangedFiles="false"
+          Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+    <Copy SourceFiles="$(ProjectDir)ac_track_id_map.json"
+          DestinationFolder="$(SimHubInstallPath)"
+          SkipUnchangedFiles="false"
+          Condition="Exists('$(ProjectDir)ac_track_id_map.json')" />
+  </Target>
+</Project>

@@ -127,6 +127,10 @@
                                 StatsPlus.LastLapTime, StatsPlus.SessionBestLapTime, StatsPlus.AllTimeBestLapTime,
                                 StatsPlus.SessionLapCount, StatsPlus.LastSector1Time, StatsPlus.LastSector2Time, StatsPlus.LastSector3Time
                             </TextBlock>
+                            <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">
+                                Stored personal bests are also exposed as StatsPlus.PersonalBest.{Game}.{Car}.{TrackVariation},
+                                using sanitized game, car, and TrackNameWithConfig segments for each recorded combination.
+                            </TextBlock>
                         </StackPanel>
                     </styles:SHSection>
                 </StackPanel>
