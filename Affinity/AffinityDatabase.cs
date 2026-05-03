@@ -80,6 +80,12 @@ namespace Affinity
     {
         public string GameName { get; set; } = string.Empty;
 
+        public double TotalDistanceKm { get; set; }
+
+        public double TotalDistanceMiles { get; set; }
+
+        public double TotalDistanceDisplay { get; set; }
+
         public List<TrackDistanceSummary> TrackSummaries { get; set; } = new List<TrackDistanceSummary>();
 
         public List<CarDistanceSummary> CarSummaries { get; set; } = new List<CarDistanceSummary>();

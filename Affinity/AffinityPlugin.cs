@@ -39,6 +39,8 @@ namespace Affinity
         private string _dataStatus = "Waiting for telemetry";
         private double _currentContextDistanceKm;
         private double _sessionDistanceKm;
+        private double _totalDistanceKm;
+        private bool _isTelemetryActive;
         private GameDistanceTab _selectedGameTab;
         private Guid _activeSessionId = Guid.Empty;
         private string _activeContextKey = string.Empty;
@@ -72,6 +74,12 @@ namespace Affinity
         public double SessionDistanceDisplay => Settings.DisplayInMiles
             ? SessionDistanceKm * MetersPerKilometer / MetersPerMile
             : SessionDistanceKm;
+
+        public double TotalDistanceDisplay => Settings.DisplayInMiles
+            ? TotalDistanceKm * MetersPerKilometer / MetersPerMile
+            : TotalDistanceKm;
+
+        public Brush StatusSectionForeground => IsTelemetryActive ? Brushes.LimeGreen : Brushes.Red;
 
         public string CurrentGameName
         {
@@ -198,6 +206,38 @@ namespace Affinity
             }
         }
 
+        public double TotalDistanceKm
+        {
+            get => _totalDistanceKm;
+            private set
+            {
+                if (Math.Abs(_totalDistanceKm - value) < 0.0001)
+                {
+                    return;
+                }
+
+                _totalDistanceKm = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(TotalDistanceDisplay));
+            }
+        }
+
+        public bool IsTelemetryActive
+        {
+            get => _isTelemetryActive;
+            private set
+            {
+                if (_isTelemetryActive == value)
+                {
+                    return;
+                }
+
+                _isTelemetryActive = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StatusSectionForeground));
+            }
+        }
+
         public void Init(PluginManager pluginManager)
         {
             PluginManager = pluginManager;
@@ -235,6 +275,7 @@ namespace Affinity
                 if (!Settings.EnablePlugin || !data.GameRunning || data.NewData == null)
                 {
                     DataStatus = !Settings.EnablePlugin ? "Plugin disabled" : "Waiting for telemetry";
+                    IsTelemetryActive = false;
                     ResetActiveSession(clearContext: false);
                     PublishProperties(pluginManager, string.Empty, string.Empty, string.Empty, 0.0, 0.0);
                     _hasLoggedDataError = false;
@@ -264,6 +305,7 @@ namespace Affinity
                     _lastObservedSessionMeters = sessionMeters;
                     SessionDistanceKm = sessionMeters / MetersPerKilometer;
                     DataStatus = "Tracking session distance";
+                    IsTelemetryActive = true;
                 }
                 else if (sessionMeters >= 0.0)
                 {
@@ -278,6 +320,7 @@ namespace Affinity
                         SessionDistanceKm = sessionMeters / MetersPerKilometer;
                         CurrentContextDistanceKm = bucket.TotalDistanceMeters / MetersPerKilometer;
                         DataStatus = $"Recorded {CurrentContextDistanceKm:F2} km for {CurrentContext}";
+                        IsTelemetryActive = true;
 
                         if (_pendingMetersSinceSave >= SaveThresholdMeters)
                         {
@@ -291,11 +334,13 @@ namespace Affinity
                         _lastObservedSessionMeters = sessionMeters;
                         SessionDistanceKm = sessionMeters / MetersPerKilometer;
                         DataStatus = "Session distance reset detected";
+                        IsTelemetryActive = true;
                     }
                 }
 
                 TrackBucket currentBucket = GetOrCreateTrackBucket(gameName, carModel, trackName, trackNameWithConfig);
                 CurrentContextDistanceKm = currentBucket.TotalDistanceMeters / MetersPerKilometer;
+                IsTelemetryActive = true;
                 PublishProperties(pluginManager, gameName, GetDisplayTrackNameWithConfig(gameName, trackNameWithConfig), carModel, CurrentContextDistanceKm, SessionDistanceKm);
                 _hasLoggedDataError = false;
             }
@@ -378,6 +423,11 @@ namespace Affinity
                 .Select(group => new GameDistanceTab
                 {
                     GameName = group.Key,
+                    TotalDistanceKm = group.Sum(summary => summary.TotalDistanceKm),
+                    TotalDistanceMiles = group.Sum(summary => summary.TotalDistanceMiles),
+                    TotalDistanceDisplay = Settings.DisplayInMiles
+                        ? group.Sum(summary => summary.TotalDistanceMiles)
+                        : group.Sum(summary => summary.TotalDistanceKm),
                     TrackSummaries = group
                         .GroupBy(summary => summary.TrackNameWithConfig)
                         .Select(trackGroup => new TrackDistanceSummary
@@ -411,6 +461,8 @@ namespace Affinity
                 .OrderBy(tab => tab.GameName)
                 .ToList();
 
+            TotalDistanceKm = summaries.Sum(summary => summary.TotalDistanceKm);
+
             string selectedGame = SelectedGameTab?.GameName;
 
             GameTabs.Clear();
@@ -433,6 +485,7 @@ namespace Affinity
             CurrentContextDistanceKm = 0.0;
             SessionDistanceKm = 0.0;
             DataStatus = "Cleared all stored affinity data";
+            IsTelemetryActive = false;
         }
 
         private AffinitySettings LoadSettings()
@@ -681,6 +734,7 @@ namespace Affinity
             OnPropertyChanged(nameof(DistanceColumnHeader));
             OnPropertyChanged(nameof(CurrentContextDistanceDisplay));
             OnPropertyChanged(nameof(SessionDistanceDisplay));
+            OnPropertyChanged(nameof(TotalDistanceDisplay));
         }
     }
 }
