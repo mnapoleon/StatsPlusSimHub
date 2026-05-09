@@ -135,6 +135,38 @@ Why:
 - In RaceRoom, `TrackPosition` can wrap to near zero one frame before `CompletedLaps` increments.
 - Without a guard, that can look like a session reset followed by an extra full-lap jump, which double-counts one lap.
 
+### Automobilista 2
+
+Games matched:
+
+- `automobilista2`
+
+Distance source:
+
+- always `Derived`
+
+Why:
+
+- The generic source auto-selection could choose a bad `SessionOdo` interpretation and inflate totals into thousands of kilometers.
+
+Session origin:
+
+- not based on lap-count origin
+- distance is integrated from forward track-position movement across lap wraps
+
+Why:
+
+- AMS2 can start partway around the lap in a real pit stall location, and its lap counter can lag relative to line crossings.
+- Affinity therefore tracks forward path traveled from successive track-position updates instead of depending on lap-count timing to build cumulative distance.
+
+Extra guards:
+
+- no AMS2-specific wrap or startup guard yet
+
+Why:
+
+- The AMS2 path model handles legitimate pit starts and line crossings by integrating forward movement across wraps instead of using AC-style zero-origin handling.
+
 ### Other Games
 
 For other games, Affinity currently auto-selects a source at session start:
@@ -215,6 +247,7 @@ The debug log is especially useful for:
 
 - `RaceRoom`
 - `AssettoCorsaEVO`
+- `Automobilista2`
 
 It records:
 

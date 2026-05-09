@@ -40,6 +40,14 @@ Date: 2026-05-07
 - Both stored only `CompletedLaps: 1`.
 - That strongly suggests AC Evo telemetry semantics differ from classic AC, and the current derived-distance logic is still interpreting Evo fields incorrectly.
 
+### Automobilista 2
+
+- Observed a severe inflation case on Red Bull National/Short.
+- The stored bucket initially showed about `4,484,685 m`, which surfaced in the UI as roughly `4484.69 km`.
+- That confirmed the generic distance-source heuristic was trusting a bad `SessionOdo` interpretation instead of a true session-distance value.
+- AMS2 now ignores `SessionOdo`, writes targeted debug logs, and uses a monotonic derived-distance model based on forward track-position movement across lap wraps.
+- On a clean retest at Red Bull National/Short, the plugin recorded about `7.22 km` for an out lap from pits plus `2` full laps on a `2328.24 m` track, and the live session distance matched the stored JSON total.
+
 ## Important Telemetry Finding
 
 In classic `Assetto Corsa`, the SimHub overlay field labeled `SessionOdo` does not behave like a trustworthy per-session odometer.
@@ -69,7 +77,7 @@ From `Affinity.distance.json`:
 
 ## Best Next Step
 
-If we come back to this, the best next move is targeted temporary logging for `AssettoCorsaEVO` only:
+If we come back to this, the best next move is targeted telemetry follow-up for `AssettoCorsaEVO`:
 
 - `CompletedLaps`
 - `TrackPositionMeters`

@@ -57,6 +57,9 @@ namespace Affinity
         private Guid _activeSessionId = Guid.Empty;
         private string _activeContextKey = string.Empty;
         private SessionDistanceSource _sessionDistanceSource = SessionDistanceSource.Unknown;
+        private double _sessionStartTrackPositionMeters = -1.0;
+        private double _sessionStatefulAbsoluteMeters;
+        private double _lastTrackPositionWithinLapMeters = -1.0;
         private double _sessionDistanceOriginMeters;
         private double _lastObservedSessionMeters = -1.0;
         private int _lastObservedCompletedLaps = -1;
@@ -356,9 +359,12 @@ namespace Affinity
                     _activeContextKey = contextKey;
                     _activeSessionId = sessionId;
                     _sessionDistanceSource = ResolveSessionDistanceSource(gameName, data.NewData);
+                    _sessionStartTrackPositionMeters = GetSessionStartTrackPositionMeters(gameName, data.NewData);
+                    _sessionStatefulAbsoluteMeters = 0.0;
+                    _lastTrackPositionWithinLapMeters = GetTrackPositionWithinLapMeters(data.NewData, data.NewData.TrackLength > 0.0 ? data.NewData.TrackLength : data.NewData.ReportedTrackLength);
                     _sessionDistanceOriginMeters = ShouldUseZeroSessionOrigin(gameName, _sessionDistanceSource)
                         ? 0.0
-                        : GetAbsoluteSessionDistanceMeters(data.NewData, _sessionDistanceSource);
+                        : GetAbsoluteSessionDistanceMeters(gameName, data.NewData, _sessionDistanceSource);
                     _lastObservedSessionMeters = 0.0;
                     _lastObservedCompletedLaps = completedLaps;
                     SessionDistanceKm = 0.0;
@@ -373,7 +379,16 @@ namespace Affinity
                 }
                 else
                 {
-                    absoluteSessionMeters = GetAbsoluteSessionDistanceMeters(data.NewData, _sessionDistanceSource);
+                    if (IsAutomobilista2Game(gameName) && _sessionDistanceSource == SessionDistanceSource.Derived)
+                    {
+                        double automobilista2TrackLengthMeters = data.NewData.TrackLength > 0.0 ? data.NewData.TrackLength : data.NewData.ReportedTrackLength;
+                        absoluteSessionMeters = UpdateAutomobilista2AbsoluteSessionDistanceMeters(data.NewData, automobilista2TrackLengthMeters);
+                    }
+                    else
+                    {
+                        absoluteSessionMeters = GetAbsoluteSessionDistanceMeters(gameName, data.NewData, _sessionDistanceSource);
+                    }
+
                     if (absoluteSessionMeters < 0.0)
                     {
                         return;
@@ -394,6 +409,7 @@ namespace Affinity
                         completedLaps == 0 &&
                         _lastObservedSessionMeters <= 25.0 &&
                         sessionMeters >= Math.Max(200.0, trackLengthMeters * 0.25) &&
+                        !IsAutomobilista2Game(gameName) &&
                         data.NewData.SpeedKmh < 5.0;
                     TrackBucket bucket = GetOrCreateTrackBucket(gameName, carModel, trackName, trackNameWithConfig);
                     bool bucketUpdated = false;
@@ -785,7 +801,7 @@ namespace Affinity
 
         private SessionDistanceSource ResolveSessionDistanceSource(string gameName, StatusDataBase status)
         {
-            if (IsAssettoCorsaGame(gameName) || IsRaceRoomGame(gameName))
+            if (IsAssettoCorsaGame(gameName) || IsRaceRoomGame(gameName) || IsAutomobilista2Game(gameName))
             {
                 return SessionDistanceSource.Derived;
             }
@@ -813,7 +829,7 @@ namespace Affinity
                 : SessionDistanceSource.Unknown;
         }
 
-        private double GetAbsoluteSessionDistanceMeters(StatusDataBase status, SessionDistanceSource source)
+        private double GetAbsoluteSessionDistanceMeters(string gameName, StatusDataBase status, SessionDistanceSource source)
         {
             if (status == null)
             {
@@ -824,6 +840,11 @@ namespace Affinity
             switch (source)
             {
                 case SessionDistanceSource.Derived:
+                    if (IsAutomobilista2Game(gameName))
+                    {
+                        return _sessionStatefulAbsoluteMeters;
+                    }
+
                     return GetDerivedSessionDistanceMeters(status, trackLengthMeters);
                 case SessionDistanceSource.SessionOdoMeters:
                     return status.SessionOdo > 0.0 ? status.SessionOdo : -1.0;
@@ -843,6 +864,7 @@ namespace Affinity
         {
             string normalized = NormalizeGameName(gameName);
             return string.Equals(normalized, "assettocorsaevo", StringComparison.Ordinal) ||
+                string.Equals(normalized, "automobilista2", StringComparison.Ordinal) ||
                 string.Equals(normalized, "raceroomracingexperience", StringComparison.Ordinal) ||
                 string.Equals(normalized, "r3e", StringComparison.Ordinal) ||
                 string.Equals(normalized, "rrre", StringComparison.Ordinal);
@@ -894,7 +916,7 @@ namespace Affinity
                 double derivedSessionMeters = GetDerivedSessionDistanceMeters(status, trackLengthMeters);
                 double sessionOdoMeters = status.SessionOdo > 0.0 ? status.SessionOdo : -1.0;
                 double sessionOdoKilometers = status.SessionOdo > 0.0 ? status.SessionOdo * MetersPerKilometer : -1.0;
-                double absoluteSessionMeters = GetAbsoluteSessionDistanceMeters(status, _sessionDistanceSource);
+                double absoluteSessionMeters = GetAbsoluteSessionDistanceMeters(gameName, status, _sessionDistanceSource);
                 string line = string.Format(
                     System.Globalization.CultureInfo.InvariantCulture,
                     "{0:o} reason={1} game=\"{2}\" car=\"{3}\" track=\"{4}\" sessionId={5} source={6} originM={7:F2} absM={8:F2} sessM={9:F2} deltaM={10:F2} completedLaps={11} lapDelta={12} trackLenM={13:F2} reportedTrackLenM={14:F2} posM={15:F2} posPct={16:F5} sessOdoRaw={17:F5} sessOdoAsM={18:F2} sessOdoAsKmM={19:F2} derivedM={20:F2} speedKmh={21:F2} isRestart={22} initialSnap={23}",
@@ -931,7 +953,72 @@ namespace Affinity
             }
         }
 
+        private double UpdateAutomobilista2AbsoluteSessionDistanceMeters(StatusDataBase status, double trackLengthMeters)
+        {
+            if (status == null || trackLengthMeters <= 0.0)
+            {
+                return -1.0;
+            }
+
+            double trackPositionMeters = GetTrackPositionWithinLapMeters(status, trackLengthMeters);
+            if (trackPositionMeters < 0.0)
+            {
+                return _sessionStatefulAbsoluteMeters;
+            }
+
+            if (_lastTrackPositionWithinLapMeters < 0.0)
+            {
+                _lastTrackPositionWithinLapMeters = trackPositionMeters;
+                return _sessionStatefulAbsoluteMeters;
+            }
+
+            double deltaTrackPositionMeters = trackPositionMeters - _lastTrackPositionWithinLapMeters;
+            if (deltaTrackPositionMeters < -(trackLengthMeters * 0.5))
+            {
+                deltaTrackPositionMeters += trackLengthMeters;
+            }
+            else if (deltaTrackPositionMeters > trackLengthMeters * 0.5)
+            {
+                deltaTrackPositionMeters -= trackLengthMeters;
+            }
+
+            if (deltaTrackPositionMeters > 0.0)
+            {
+                _sessionStatefulAbsoluteMeters += deltaTrackPositionMeters;
+            }
+
+            _lastTrackPositionWithinLapMeters = trackPositionMeters;
+            return _sessionStatefulAbsoluteMeters;
+        }
+
         private static double GetDerivedSessionDistanceMeters(StatusDataBase status, double trackLengthMeters)
+        {
+            if (status == null || trackLengthMeters <= 0.0)
+            {
+                return -1.0;
+            }
+
+            double trackPositionMeters = GetTrackPositionWithinLapMeters(status, trackLengthMeters);
+            if (trackPositionMeters < 0.0)
+            {
+                return -1.0;
+            }
+
+            return Math.Max(0, status.CompletedLaps) * trackLengthMeters + trackPositionMeters;
+        }
+
+        private double GetSessionStartTrackPositionMeters(string gameName, StatusDataBase status)
+        {
+            if (!IsAutomobilista2Game(gameName) || status == null)
+            {
+                return -1.0;
+            }
+
+            double trackLengthMeters = status.TrackLength > 0.0 ? status.TrackLength : status.ReportedTrackLength;
+            return GetTrackPositionWithinLapMeters(status, trackLengthMeters);
+        }
+
+        private static double GetTrackPositionWithinLapMeters(StatusDataBase status, double trackLengthMeters)
         {
             if (status == null || trackLengthMeters <= 0.0)
             {
@@ -952,8 +1039,7 @@ namespace Affinity
                 trackPositionMeters = trackPositionPercent * trackLengthMeters;
             }
 
-            trackPositionMeters = Math.Max(0.0, Math.Min(trackPositionMeters, trackLengthMeters));
-            return Math.Max(0, status.CompletedLaps) * trackLengthMeters + trackPositionMeters;
+            return Math.Max(0.0, Math.Min(trackPositionMeters, trackLengthMeters));
         }
 
         private void PublishProperties(PluginManager pluginManager, string gameName, string trackName, string carModel, double totalKm, int totalCompletedLaps, double sessionKm, int sessionCompletedLaps)
@@ -974,6 +1060,9 @@ namespace Affinity
             _activeSessionId = Guid.Empty;
             _activeContextKey = string.Empty;
             _sessionDistanceSource = SessionDistanceSource.Unknown;
+            _sessionStartTrackPositionMeters = -1.0;
+            _sessionStatefulAbsoluteMeters = 0.0;
+            _lastTrackPositionWithinLapMeters = -1.0;
             _sessionDistanceOriginMeters = 0.0;
             _lastObservedSessionMeters = -1.0;
             _lastObservedCompletedLaps = -1;
@@ -1002,6 +1091,12 @@ namespace Affinity
             return string.Equals(normalized, "raceroomracingexperience", StringComparison.Ordinal) ||
                 string.Equals(normalized, "r3e", StringComparison.Ordinal) ||
                 string.Equals(normalized, "rrre", StringComparison.Ordinal);
+        }
+
+        private bool IsAutomobilista2Game(string gameName)
+        {
+            string normalized = NormalizeGameName(gameName);
+            return string.Equals(normalized, "automobilista2", StringComparison.Ordinal);
         }
 
         private static string NormalizeGameName(string gameName)
