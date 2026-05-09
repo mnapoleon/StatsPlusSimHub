@@ -30,6 +30,8 @@ namespace Affinity
 
         public double TotalDistanceMeters { get; set; }
 
+        public int CompletedLaps { get; set; }
+
         public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
 
         public DateTime LastUpdatedUtc { get; set; } = DateTime.UtcNow;
@@ -49,6 +51,8 @@ namespace Affinity
 
         public double TotalDistanceMiles { get; set; }
 
+        public int CompletedLaps { get; set; }
+
         public DateTime LastUpdatedUtc { get; set; }
     }
 
@@ -63,6 +67,8 @@ namespace Affinity
         public double DistanceMiles { get; set; }
 
         public double DistanceDisplay { get; set; }
+
+        public int CompletedLaps { get; set; }
     }
 
     public class CarDistanceSummary
@@ -74,6 +80,8 @@ namespace Affinity
         public double DistanceMiles { get; set; }
 
         public double DistanceDisplay { get; set; }
+
+        public int CompletedLaps { get; set; }
     }
 
     public class GameDistanceTab
@@ -85,6 +93,8 @@ namespace Affinity
         public double TotalDistanceMiles { get; set; }
 
         public double TotalDistanceDisplay { get; set; }
+
+        public int TotalCompletedLaps { get; set; }
 
         public List<TrackDistanceSummary> TrackSummaries { get; set; } = new List<TrackDistanceSummary>();
 
