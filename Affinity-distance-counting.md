@@ -167,6 +167,40 @@ Why:
 
 - The AMS2 path model handles legitimate pit starts and line crossings by integrating forward movement across wraps instead of using AC-style zero-origin handling.
 
+### iRacing
+
+Games matched:
+
+- `iracing`
+
+Distance source:
+
+- always `Derived`
+
+Why:
+
+- iRacing's SimHub `SessionOdo` values were not trustworthy as a per-session distance source.
+- Its `CompletedLaps` semantics can also lag the real line crossing for pit and out-lap scenarios, which makes the generic lap-count-derived formula undercount or reset incorrectly.
+
+Session origin:
+
+- not based on lap-count origin
+- distance is integrated from forward track-position movement across lap wraps
+
+Why:
+
+- iRacing can start the car partway around the lap at pit exit and may keep `CompletedLaps = 0` across the out lap.
+- Affinity therefore measures actual forward path traveled from successive track-position updates instead of reconstructing session distance from lap count.
+
+Extra guards:
+
+- ignores brief iRacing-only zeroed telemetry drops after progress has already been recorded
+
+Why:
+
+- iRacing can briefly report `0` laps and `0` position without a real session restart.
+- Without a guard, that transient reset can double-count both distance and laps when telemetry snaps back a frame later.
+
 ### Other Games
 
 For other games, Affinity currently auto-selects a source at session start:
