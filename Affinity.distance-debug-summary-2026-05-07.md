@@ -48,6 +48,12 @@ Date: 2026-05-07
 - AMS2 now ignores `SessionOdo`, writes targeted debug logs, and uses a monotonic derived-distance model based on forward track-position movement across lap wraps.
 - On a clean retest at Red Bull National/Short, the plugin recorded about `7.22 km` for an out lap from pits plus `2` full laps on a `2328.24 m` track, and the live session distance matched the stored JSON total.
 
+### iRacing
+
+- iRacing also needed to stop depending on lap-count-derived cumulative distance.
+- A Red Bull Ring National test showed the live derived session distance reaching only about `4.86 km`, while the stored bucket inflated to `11.43 km` because telemetry briefly dropped to `0` laps / `0` position and then snapped back.
+- iRacing now ignores `SessionOdo`, uses the same monotonic forward track-position model as AMS2, and suppresses transient zeroed telemetry frames so distance and lap totals are not counted twice.
+
 ## Important Telemetry Finding
 
 In classic `Assetto Corsa`, the SimHub overlay field labeled `SessionOdo` does not behave like a trustworthy per-session odometer.

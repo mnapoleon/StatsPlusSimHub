@@ -397,10 +397,37 @@ namespace Affinity
                 }
                 else
                 {
-                    if (IsAutomobilista2Game(gameName) && _sessionDistanceSource == SessionDistanceSource.Derived)
+                    double trackLengthMeters = data.NewData.TrackLength > 0.0 ? data.NewData.TrackLength : data.NewData.ReportedTrackLength;
+                    bool usesStatefulDerivedDistance = UsesStatefulDerivedDistance(gameName) &&
+                        _sessionDistanceSource == SessionDistanceSource.Derived;
+
+                    if (usesStatefulDerivedDistance && LooksLikeTransientIracingZeroDrop(gameName, data.NewData, completedLaps, trackLengthMeters))
                     {
-                        double automobilista2TrackLengthMeters = data.NewData.TrackLength > 0.0 ? data.NewData.TrackLength : data.NewData.ReportedTrackLength;
-                        absoluteSessionMeters = UpdateAutomobilista2AbsoluteSessionDistanceMeters(data.NewData, automobilista2TrackLengthMeters);
+                        SessionDistanceKm = _lastObservedSessionMeters / MetersPerKilometer;
+                        SessionCompletedLaps = _lastObservedCompletedLaps;
+                        DataStatus = "Ignoring transient iRacing telemetry reset";
+                        IsTelemetryActive = true;
+
+                        if (shouldDebugTelemetry)
+                        {
+                            LogTelemetryDebugSnapshot("transient-zero-drop", gameName, carModel, trackNameWithConfig, sessionId, data.NewData, 0.0, _lastObservedSessionMeters, completedLaps - _lastObservedCompletedLaps, false);
+                        }
+
+                        PublishProperties(
+                            pluginManager,
+                            CurrentGameName,
+                            CurrentTrackNameWithConfig,
+                            CurrentCarModel,
+                            CurrentContextDistanceKm,
+                            CurrentContextCompletedLaps,
+                            SessionDistanceKm,
+                            SessionCompletedLaps);
+                        return;
+                    }
+
+                    if (usesStatefulDerivedDistance)
+                    {
+                        absoluteSessionMeters = UpdateStatefulDerivedAbsoluteSessionDistanceMeters(data.NewData, trackLengthMeters);
                     }
                     else
                     {
@@ -415,7 +442,6 @@ namespace Affinity
                     double sessionMeters = Math.Max(0.0, absoluteSessionMeters - _sessionDistanceOriginMeters);
                     double deltaMeters = sessionMeters - _lastObservedSessionMeters;
                     int lapDelta = completedLaps - _lastObservedCompletedLaps;
-                    double trackLengthMeters = data.NewData.TrackLength > 0.0 ? data.NewData.TrackLength : data.NewData.ReportedTrackLength;
                     bool looksLikeDerivedLapBoundaryWrap = _sessionDistanceSource == SessionDistanceSource.Derived &&
                         trackLengthMeters > 0.0 &&
                         lapDelta == 0 &&
@@ -828,7 +854,7 @@ namespace Affinity
 
         private SessionDistanceSource ResolveSessionDistanceSource(string gameName, StatusDataBase status)
         {
-            if (IsAssettoCorsaGame(gameName) || IsRaceRoomGame(gameName) || IsAutomobilista2Game(gameName))
+            if (IsAssettoCorsaGame(gameName) || IsRaceRoomGame(gameName) || IsAutomobilista2Game(gameName) || IsIRacingGame(gameName))
             {
                 return SessionDistanceSource.Derived;
             }
@@ -867,7 +893,7 @@ namespace Affinity
             switch (source)
             {
                 case SessionDistanceSource.Derived:
-                    if (IsAutomobilista2Game(gameName))
+                    if (UsesStatefulDerivedDistance(gameName))
                     {
                         return _sessionStatefulAbsoluteMeters;
                     }
@@ -993,7 +1019,7 @@ namespace Affinity
             }
         }
 
-        private double UpdateAutomobilista2AbsoluteSessionDistanceMeters(StatusDataBase status, double trackLengthMeters)
+        private double UpdateStatefulDerivedAbsoluteSessionDistanceMeters(StatusDataBase status, double trackLengthMeters)
         {
             if (status == null || trackLengthMeters <= 0.0)
             {
@@ -1137,6 +1163,34 @@ namespace Affinity
         {
             string normalized = NormalizeGameName(gameName);
             return string.Equals(normalized, "automobilista2", StringComparison.Ordinal);
+        }
+
+        private bool IsIRacingGame(string gameName)
+        {
+            string normalized = NormalizeGameName(gameName);
+            return string.Equals(normalized, "iracing", StringComparison.Ordinal);
+        }
+
+        private bool UsesStatefulDerivedDistance(string gameName)
+        {
+            return IsAutomobilista2Game(gameName) || IsIRacingGame(gameName);
+        }
+
+        private bool LooksLikeTransientIracingZeroDrop(string gameName, StatusDataBase status, int completedLaps, double trackLengthMeters)
+        {
+            if (!IsIRacingGame(gameName) ||
+                status == null ||
+                _sessionDistanceSource != SessionDistanceSource.Derived ||
+                _lastObservedCompletedLaps <= 0 ||
+                _lastObservedSessionMeters <= Math.Max(100.0, trackLengthMeters * 0.25))
+            {
+                return false;
+            }
+
+            return completedLaps == 0 &&
+                status.SpeedKmh < 1.0 &&
+                status.TrackPositionMeters <= 1.0 &&
+                status.TrackPositionPercent <= 0.001;
         }
 
         private void EnsureDefaultGameDebugLoggingSettings()
