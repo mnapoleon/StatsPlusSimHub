@@ -34,6 +34,15 @@ namespace Affinity
         private const double MetersPerKilometer = 1000.0;
         private const double MetersPerMile = 1609.344;
         private const double SaveThresholdMeters = 50.0;
+        private static readonly KeyValuePair<string, string>[] DefaultGameDebugLoggingEntries =
+        {
+            new KeyValuePair<string, string>("assettocorsa", "Assetto Corsa"),
+            new KeyValuePair<string, string>("assettocorsaevo", "Assetto Corsa EVO"),
+            new KeyValuePair<string, string>("automobilista2", "Automobilista 2"),
+            new KeyValuePair<string, string>("iracing", "iRacing"),
+            new KeyValuePair<string, string>("rfactor2", "rFactor 2"),
+            new KeyValuePair<string, string>("raceroomracingexperience", "RaceRoom Racing Experience")
+        };
 
         private bool _hasLoggedDataError;
         private string _settingsPath = string.Empty;
@@ -79,6 +88,8 @@ namespace Affinity
         public string DatabasePath => _databasePath;
 
         public ObservableCollection<GameDistanceTab> GameTabs { get; } = new ObservableCollection<GameDistanceTab>();
+
+        public ObservableCollection<GameDebugLoggingOption> GameDebugLoggingOptions { get; } = new ObservableCollection<GameDebugLoggingOption>();
 
         public string CurrentContext => $"{CurrentGameName} / {CurrentCarModel} / {GetDisplayTrackNameWithConfig(CurrentGameName, CurrentTrackNameWithConfig)}";
 
@@ -295,6 +306,7 @@ namespace Affinity
             _debugLogPath = pluginManager.GetCommonStoragePath(DebugLogFileName);
             _acTrackMapPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ac_track_id_map.json");
             Settings = LoadSettings();
+            EnsureDefaultGameDebugLoggingSettings();
             _assettoCorsaTrackMap = LoadAssettoCorsaTrackMap();
             _database = LoadDatabase();
 
@@ -311,9 +323,10 @@ namespace Affinity
             pluginManager.AddProperty("Affinity.SessionDistanceMiles", GetType(), 0.0);
             pluginManager.AddProperty("Affinity.SessionCompletedLaps", GetType(), 0);
             pluginManager.AddProperty("Affinity.DataFilePath", GetType(), _databasePath);
-            pluginManager.AddProperty("Affinity.DebugLogPath", GetType(), _debugLogPath);
+            pluginManager.AddProperty("Affinity.DebugLogPath", GetType(), GetDebugLogPath(string.Empty));
 
             RefreshDistanceSummaries();
+            RefreshGameDebugLoggingOptions();
             SimHub.Logging.Current.Info($"Affinity v{Version} - Initialised");
         }
 
@@ -324,7 +337,7 @@ namespace Affinity
                 pluginManager.SetPropertyValue("Affinity.Enabled", GetType(), Settings.EnablePlugin);
                 pluginManager.SetPropertyValue("Affinity.IsGameRunning", GetType(), data.GameRunning);
                 pluginManager.SetPropertyValue("Affinity.DataFilePath", GetType(), _databasePath);
-                pluginManager.SetPropertyValue("Affinity.DebugLogPath", GetType(), _debugLogPath);
+                pluginManager.SetPropertyValue("Affinity.DebugLogPath", GetType(), GetDebugLogPath(string.Empty));
 
                 if (!Settings.EnablePlugin || !data.GameRunning || data.NewData == null)
                 {
@@ -340,6 +353,11 @@ namespace Affinity
                 string carModel = NormalizeContextValue(data.NewData.CarModel, "Unknown Car");
                 string trackName = NormalizeContextValue(data.NewData.TrackName, "Unknown Track");
                 string trackNameWithConfig = NormalizeContextValue(data.NewData.TrackNameWithConfig, trackName);
+                if (EnsureGameDebugLoggingConfigured(gameName))
+                {
+                    RefreshGameDebugLoggingOptions();
+                }
+                pluginManager.SetPropertyValue("Affinity.DebugLogPath", GetType(), GetDebugLogPath(gameName));
 
                 CurrentGameName = gameName;
                 CurrentCarModel = carModel;
@@ -571,7 +589,9 @@ namespace Affinity
         internal void ResetSettings()
         {
             Settings.Reset();
+            EnsureDefaultGameDebugLoggingSettings();
             SaveSettings();
+            RefreshGameDebugLoggingOptions();
             OnPropertyChanged(nameof(Settings));
             RefreshDistanceSummaries();
             NotifyDistanceDisplayChanged();
@@ -650,6 +670,13 @@ namespace Affinity
             SelectedGameTab = GameTabs.FirstOrDefault(tab =>
                 string.Equals(tab.GameName, selectedGame, StringComparison.OrdinalIgnoreCase))
                 ?? GameTabs.FirstOrDefault();
+
+            foreach (GameDistanceTab tab in GameTabs)
+            {
+                EnsureGameDebugLoggingConfigured(tab.GameName);
+            }
+
+            RefreshGameDebugLoggingOptions();
         }
 
         internal void ClearAllData()
@@ -862,12 +889,24 @@ namespace Affinity
 
         private bool ShouldDebugTelemetry(string gameName)
         {
-            string normalized = NormalizeGameName(gameName);
-            return string.Equals(normalized, "assettocorsaevo", StringComparison.Ordinal) ||
-                string.Equals(normalized, "automobilista2", StringComparison.Ordinal) ||
-                string.Equals(normalized, "raceroomracingexperience", StringComparison.Ordinal) ||
-                string.Equals(normalized, "r3e", StringComparison.Ordinal) ||
-                string.Equals(normalized, "rrre", StringComparison.Ordinal);
+            if (!Settings.EnableDebugLogging)
+            {
+                return false;
+            }
+
+            string settingsKey = GetDebugLoggingSettingsKey(gameName);
+            if (string.IsNullOrWhiteSpace(settingsKey))
+            {
+                return false;
+            }
+
+            if (!Settings.GameDebugLogging.TryGetValue(settingsKey, out bool isEnabled))
+            {
+                Settings.GameDebugLogging[settingsKey] = true;
+                return true;
+            }
+
+            return isEnabled;
         }
 
         private bool ShouldLogTelemetryProgress(double deltaMeters, int lapDelta, double trackLengthMeters)
@@ -901,12 +940,13 @@ namespace Affinity
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(_debugLogPath) || status == null)
+                string debugLogPath = GetDebugLogPath(gameName);
+                if (string.IsNullOrWhiteSpace(debugLogPath) || status == null || !ShouldDebugTelemetry(gameName))
                 {
                     return;
                 }
 
-                string directory = Path.GetDirectoryName(_debugLogPath);
+                string directory = Path.GetDirectoryName(debugLogPath);
                 if (!string.IsNullOrWhiteSpace(directory))
                 {
                     Directory.CreateDirectory(directory);
@@ -945,7 +985,7 @@ namespace Affinity
                     status.IsSessionRestart,
                     looksLikeInitialPositionSnap);
 
-                File.AppendAllText(_debugLogPath, line + Environment.NewLine, Encoding.UTF8);
+                File.AppendAllText(debugLogPath, line + Environment.NewLine, Encoding.UTF8);
             }
             catch (Exception ex)
             {
@@ -1097,6 +1137,144 @@ namespace Affinity
         {
             string normalized = NormalizeGameName(gameName);
             return string.Equals(normalized, "automobilista2", StringComparison.Ordinal);
+        }
+
+        private void EnsureDefaultGameDebugLoggingSettings()
+        {
+            if (Settings.GameDebugLogging == null)
+            {
+                Settings.GameDebugLogging = new Dictionary<string, bool>();
+            }
+
+            foreach (KeyValuePair<string, string> entry in DefaultGameDebugLoggingEntries)
+            {
+                if (!Settings.GameDebugLogging.ContainsKey(entry.Key))
+                {
+                    Settings.GameDebugLogging[entry.Key] = true;
+                }
+            }
+        }
+
+        private bool EnsureGameDebugLoggingConfigured(string gameName)
+        {
+            string settingsKey = GetDebugLoggingSettingsKey(gameName);
+            if (string.IsNullOrWhiteSpace(settingsKey))
+            {
+                return false;
+            }
+
+            if (Settings.GameDebugLogging == null)
+            {
+                Settings.GameDebugLogging = new Dictionary<string, bool>();
+            }
+
+            if (!Settings.GameDebugLogging.ContainsKey(settingsKey))
+            {
+                Settings.GameDebugLogging[settingsKey] = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void RefreshGameDebugLoggingOptions()
+        {
+            List<KeyValuePair<string, string>> entries = new List<KeyValuePair<string, string>>();
+
+            foreach (KeyValuePair<string, string> entry in DefaultGameDebugLoggingEntries)
+            {
+                entries.Add(entry);
+            }
+
+            foreach (string settingsKey in Settings.GameDebugLogging.Keys.OrderBy(key => GetDebugLoggingDisplayName(key)))
+            {
+                if (entries.Any(entry => string.Equals(entry.Key, settingsKey, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                entries.Add(new KeyValuePair<string, string>(settingsKey, GetDebugLoggingDisplayName(settingsKey)));
+            }
+
+            GameDebugLoggingOptions.Clear();
+            foreach (KeyValuePair<string, string> entry in entries.OrderBy(item => item.Value))
+            {
+                bool isEnabled = !Settings.GameDebugLogging.TryGetValue(entry.Key, out bool configuredEnabled) || configuredEnabled;
+                GameDebugLoggingOptions.Add(new GameDebugLoggingOption(entry.Key, entry.Value, isEnabled, UpdateGameDebugLoggingSetting));
+            }
+        }
+
+        private void UpdateGameDebugLoggingSetting(string settingsKey, bool isEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(settingsKey))
+            {
+                return;
+            }
+
+            if (Settings.GameDebugLogging == null)
+            {
+                Settings.GameDebugLogging = new Dictionary<string, bool>();
+            }
+
+            Settings.GameDebugLogging[settingsKey] = isEnabled;
+        }
+
+        private string GetDebugLogPath(string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(_debugLogPath))
+            {
+                return string.Empty;
+            }
+
+            string directory = Path.GetDirectoryName(_debugLogPath);
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(_debugLogPath);
+            string extension = Path.GetExtension(_debugLogPath);
+            string settingsKey = GetDebugLoggingSettingsKey(gameName);
+
+            if (string.IsNullOrWhiteSpace(settingsKey))
+            {
+                return _debugLogPath;
+            }
+
+            return Path.Combine(directory ?? string.Empty, $"{fileNameWithoutExtension}.{settingsKey}{extension}");
+        }
+
+        private string GetDebugLoggingSettingsKey(string gameName)
+        {
+            string normalized = NormalizeGameName(gameName);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return string.Empty;
+            }
+
+            if (string.Equals(normalized, "r3e", StringComparison.Ordinal) ||
+                string.Equals(normalized, "rrre", StringComparison.Ordinal))
+            {
+                return "raceroomracingexperience";
+            }
+
+            return normalized;
+        }
+
+        private string GetDebugLoggingDisplayName(string settingsKey)
+        {
+            switch (settingsKey)
+            {
+                case "assettocorsa":
+                    return "Assetto Corsa";
+                case "assettocorsaevo":
+                    return "Assetto Corsa EVO";
+                case "automobilista2":
+                    return "Automobilista 2";
+                case "iracing":
+                    return "iRacing";
+                case "rfactor2":
+                    return "rFactor 2";
+                case "raceroomracingexperience":
+                    return "RaceRoom Racing Experience";
+                default:
+                    return settingsKey;
+            }
         }
 
         private static string NormalizeGameName(string gameName)

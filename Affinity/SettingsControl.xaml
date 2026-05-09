@@ -8,173 +8,301 @@
              mc:Ignorable="d"
              d:DesignHeight="540"
              d:DesignWidth="900">
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-        <TextBlock FontSize="20" FontWeight="SemiBold" Text="Affinity" />
+            <TextBlock FontSize="20" FontWeight="SemiBold" Text="Affinity" />
 
-        <Grid Grid.Row="1" Margin="0,16,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+            <styles:SHTabControl Grid.Row="1" Margin="0,16,0,0" SelectedIndex="0">
+                <styles:SHTabItem Header="Settings">
+                    <StackPanel>
+                        <styles:SHSection Title="General">
+                            <StackPanel Margin="12">
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal">
-                <CheckBox VerticalAlignment="Center"
-                          Content="Enable plugin"
-                          IsChecked="{Binding Settings.EnablePlugin, Mode=TwoWay}" />
-                <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" Text="Units:" />
-                <CheckBox Margin="6,0,0,0"
-                          VerticalAlignment="Center"
-                          Content="Display miles"
-                          Checked="DistanceUnitChanged"
-                          Unchecked="DistanceUnitChanged"
-                          IsChecked="{Binding Settings.DisplayInMiles, Mode=TwoWay}" />
-                <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" Text="Current total:" />
-                <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Text="{Binding CurrentContextDistanceDisplay, StringFormat=F2}" />
-                <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="{Binding DistanceUnitLabel}" />
-                <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" Text="Session:" />
-                <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Text="{Binding SessionDistanceDisplay, StringFormat=F2}" />
-                <TextBlock Margin="4,0,0,0" VerticalAlignment="Center" Text="{Binding DistanceUnitLabel}" />
-                <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" Text="Total laps:" />
-                <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Text="{Binding CurrentContextCompletedLaps}" />
-                <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" Text="Session laps:" />
-                <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" Text="{Binding SessionCompletedLaps}" />
-            </StackPanel>
+                                    <TextBlock Grid.Row="0"
+                                               Grid.Column="0"
+                                               Margin="0,0,12,8"
+                                               VerticalAlignment="Center"
+                                               Text="Enable plugin" />
+                                    <CheckBox Grid.Row="0"
+                                              Grid.Column="1"
+                                              Margin="0,0,0,8"
+                                              HorizontalAlignment="Left"
+                                              IsChecked="{Binding Settings.EnablePlugin, Mode=TwoWay}" />
 
-            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                <TextBlock HorizontalAlignment="Right"
-                           FontSize="14"
-                           FontWeight="SemiBold"
-                           Text="Total distance across all games:" />
-                <StackPanel Margin="0,4,0,0"
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal">
-                    <TextBlock VerticalAlignment="Center"
-                               FontSize="14"
-                               FontWeight="SemiBold"
-                               Text="{Binding TotalDistanceDisplay, StringFormat=F2}" />
-                    <TextBlock Margin="4,0,0,0"
-                               VerticalAlignment="Center"
-                               FontSize="14"
-                               FontWeight="SemiBold"
-                               Text="{Binding DistanceUnitLabel}" />
-                </StackPanel>
-                <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding GameTabs}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Margin="0,2,0,0"
-                                        HorizontalAlignment="Right"
-                                        Orientation="Horizontal">
-                                <TextBlock VerticalAlignment="Center"
-                                           FontSize="12"
-                                           Text="{Binding GameName}" />
-                                <TextBlock Margin="8,0,0,0"
-                                           VerticalAlignment="Center"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"
-                                           Text="{Binding TotalDistanceDisplay, StringFormat=F2}" />
-                                <TextBlock Margin="8,0,0,0"
-                                           VerticalAlignment="Center"
-                                           FontSize="12"
-                                           Text="{Binding TotalCompletedLaps, StringFormat={}({0} laps)}" />
-                                <TextBlock Margin="4,0,0,0"
-                                           VerticalAlignment="Center"
-                                           FontSize="12"
-                                           Text="{Binding DataContext.DistanceUnitLabel, ElementName=Root}" />
+                                    <TextBlock Grid.Row="1"
+                                               Grid.Column="0"
+                                               Margin="0,0,12,0"
+                                               VerticalAlignment="Center"
+                                               Text="Distance units" />
+                                    <CheckBox Grid.Row="1"
+                                              Grid.Column="1"
+                                              Margin="0,0,0,8"
+                                              HorizontalAlignment="Left"
+                                              Content="Display miles"
+                                              Checked="DistanceUnitChanged"
+                                              Unchecked="DistanceUnitChanged"
+                                              IsChecked="{Binding Settings.DisplayInMiles, Mode=TwoWay}" />
+
+                                    <TextBlock Grid.Row="2"
+                                               Grid.Column="0"
+                                               Margin="0,0,12,0"
+                                               VerticalAlignment="Center"
+                                               Text="Debug logging" />
+                                    <CheckBox Grid.Row="2"
+                                              Grid.Column="1"
+                                              HorizontalAlignment="Left"
+                                              Content="Write telemetry debug log"
+                                              IsChecked="{Binding Settings.EnableDebugLogging, Mode=TwoWay}" />
+                                </Grid>
+
+                                <TextBlock Margin="0,0,0,8" TextWrapping="Wrap">
+                                    Debug logs are written to separate files per game. Use the checkboxes below to control which games produce telemetry logs when debug logging is enabled.
+                                </TextBlock>
+
+                                <ItemsControl ItemsSource="{Binding GameDebugLoggingOptions}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Margin="0,0,0,6"
+                                                      Content="{Binding DisplayName}"
+                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Width="90" Click="SaveButton_Click" Content="Save" />
+                                    <Button Width="110" Margin="8,0,0,0" Click="ResetButton_Click" Content="Reset Settings" />
+                                    <Button Width="90" Margin="8,0,0,0" Click="ClearAllButton_Click" Content="Clear All" />
+                                </StackPanel>
                             </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+                        </styles:SHSection>
+                    </StackPanel>
+                </styles:SHTabItem>
+
+                <styles:SHTabItem Header="Data">
+                    <StackPanel>
+                        <styles:SHSection Title="Live Summary">
+                            <StackPanel Margin="12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="24" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Grid Grid.Column="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="180" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0"
+                                                   Grid.Column="0"
+                                                   Margin="0,0,12,8"
+                                                   FontWeight="Bold"
+                                                   Text="Current total" />
+                                        <StackPanel Grid.Row="0"
+                                                    Grid.Column="1"
+                                                    Grid.ColumnSpan="2"
+                                                    Margin="0,0,0,8"
+                                                    Orientation="Horizontal">
+                                            <TextBlock Text="{Binding CurrentContextDistanceDisplay, StringFormat=F2}" />
+                                            <TextBlock Margin="4,0,0,0" Text="{Binding DistanceUnitLabel}" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="0"
+                                                   Margin="0,0,12,8"
+                                                   FontWeight="Bold"
+                                                   Text="Session" />
+                                        <StackPanel Grid.Row="1"
+                                                    Grid.Column="1"
+                                                    Grid.ColumnSpan="2"
+                                                    Margin="0,0,0,8"
+                                                    Orientation="Horizontal">
+                                            <TextBlock Text="{Binding SessionDistanceDisplay, StringFormat=F2}" />
+                                            <TextBlock Margin="4,0,0,0" Text="{Binding DistanceUnitLabel}" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Row="2"
+                                                   Grid.Column="0"
+                                                   Margin="0,0,12,8"
+                                                   FontWeight="Bold"
+                                                   Text="Total laps" />
+                                        <TextBlock Grid.Row="2"
+                                                   Grid.Column="1"
+                                                   Grid.ColumnSpan="2"
+                                                   Margin="0,0,0,8"
+                                                   Text="{Binding CurrentContextCompletedLaps}" />
+
+                                        <TextBlock Grid.Row="3"
+                                                   Grid.Column="0"
+                                                   Margin="0,0,12,0"
+                                                   FontWeight="Bold"
+                                                   Text="Session laps" />
+                                        <TextBlock Grid.Row="3"
+                                                   Grid.Column="1"
+                                                   Grid.ColumnSpan="2"
+                                                   Text="{Binding SessionCompletedLaps}" />
+                                    </Grid>
+
+                                    <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                                        <TextBlock HorizontalAlignment="Right"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Text="Total distance across all games:" />
+                                        <StackPanel Margin="0,4,0,0"
+                                                    HorizontalAlignment="Right"
+                                                    Orientation="Horizontal">
+                                            <TextBlock VerticalAlignment="Center"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding TotalDistanceDisplay, StringFormat=F2}" />
+                                            <TextBlock Margin="4,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding DistanceUnitLabel}" />
+                                        </StackPanel>
+                                        <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding GameTabs}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Margin="0,2,0,0"
+                                                                HorizontalAlignment="Right"
+                                                                Orientation="Horizontal">
+                                                        <TextBlock VerticalAlignment="Center"
+                                                                   FontSize="12"
+                                                                   Text="{Binding GameName}" />
+                                                        <TextBlock Margin="8,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="12"
+                                                                   FontWeight="SemiBold"
+                                                                   Text="{Binding TotalDistanceDisplay, StringFormat=F2}" />
+                                                        <TextBlock Margin="8,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="12"
+                                                                   Text="{Binding TotalCompletedLaps, StringFormat={}({0} laps)}" />
+                                                        <TextBlock Margin="4,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   FontSize="12"
+                                                                   Text="{Binding DataContext.DistanceUnitLabel, ElementName=Root}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </styles:SHSection>
+
+                        <styles:SHSection Title="Stored Distance">
+                            <StackPanel Margin="12">
+                                <styles:SHTabControl ItemsSource="{Binding GameTabs}"
+                                                     SelectedItem="{Binding SelectedGameTab, Mode=TwoWay}"
+                                                     DisplayMemberPath="GameName"
+                                                     Height="300">
+                                    <styles:SHTabControl.ContentTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="16" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
+                                                </Grid.RowDefinitions>
+
+                                                <TextBlock FontSize="14" FontWeight="SemiBold" Text="Tracks" />
+                                                <TextBlock Grid.Column="2" FontSize="14" FontWeight="SemiBold" Text="Cars" />
+
+                                                <DataGrid Grid.Row="1"
+                                                          AutoGenerateColumns="False"
+                                                          CanUserAddRows="False"
+                                                          CanUserDeleteRows="False"
+                                                          IsReadOnly="True"
+                                                          ItemsSource="{Binding TrackSummaries}">
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Width="*" Binding="{Binding TrackDisplayName}" Header="Track" />
+                                                        <DataGridTextColumn Width="120" Binding="{Binding DistanceDisplay, StringFormat=F2}">
+                                                            <DataGridTextColumn.Header>
+                                                                <TextBlock Text="{Binding DataContext.DistanceColumnHeader, ElementName=Root}" />
+                                                            </DataGridTextColumn.Header>
+                                                        </DataGridTextColumn>
+                                                        <DataGridTextColumn Width="110" Binding="{Binding CompletedLaps}" Header="Laps" />
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+
+                                                <DataGrid Grid.Row="1"
+                                                          Grid.Column="2"
+                                                          AutoGenerateColumns="False"
+                                                          CanUserAddRows="False"
+                                                          CanUserDeleteRows="False"
+                                                          IsReadOnly="True"
+                                                          ItemsSource="{Binding CarSummaries}">
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Width="*" Binding="{Binding CarModel}" Header="Car" />
+                                                        <DataGridTextColumn Width="120" Binding="{Binding DistanceDisplay, StringFormat=F2}">
+                                                            <DataGridTextColumn.Header>
+                                                                <TextBlock Text="{Binding DataContext.DistanceColumnHeader, ElementName=Root}" />
+                                                            </DataGridTextColumn.Header>
+                                                        </DataGridTextColumn>
+                                                        <DataGridTextColumn Width="110" Binding="{Binding CompletedLaps}" Header="Laps" />
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </styles:SHTabControl.ContentTemplate>
+                                </styles:SHTabControl>
+
+                                <StackPanel Margin="0,12,0,0"
+                                            HorizontalAlignment="Right">
+                                    <TextBlock TextAlignment="Right"
+                                               Foreground="{Binding StatusSectionForeground}"
+                                               Text="{Binding DataStatus}" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               TextAlignment="Right"
+                                               Foreground="{Binding StatusSectionForeground}"
+                                               Text="{Binding CurrentContext}" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               TextAlignment="Right"
+                                               Foreground="{Binding StatusSectionForeground}"
+                                               Text="{Binding DatabasePath}" />
+                                </StackPanel>
+
+                                <Button Width="90"
+                                        Margin="0,12,0,0"
+                                        HorizontalAlignment="Left"
+                                        Click="RefreshButton_Click"
+                                        Content="Refresh" />
+                            </StackPanel>
+                        </styles:SHSection>
+                    </StackPanel>
+                </styles:SHTabItem>
+            </styles:SHTabControl>
         </Grid>
-
-        <styles:SHTabControl Grid.Row="2"
-                             ItemsSource="{Binding GameTabs}"
-                             SelectedItem="{Binding SelectedGameTab, Mode=TwoWay}"
-                             DisplayMemberPath="GameName">
-            <styles:SHTabControl.ContentTemplate>
-                <DataTemplate>
-                    <Grid Margin="0,8,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock FontSize="14" FontWeight="SemiBold" Text="Tracks" />
-                        <TextBlock Grid.Column="2" FontSize="14" FontWeight="SemiBold" Text="Cars" />
-
-                        <DataGrid Grid.Row="1"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  IsReadOnly="True"
-                                  ItemsSource="{Binding TrackSummaries}">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Width="*" Binding="{Binding TrackDisplayName}" Header="Track" />
-                                <DataGridTextColumn Width="120" Binding="{Binding DistanceDisplay, StringFormat=F2}">
-                                    <DataGridTextColumn.Header>
-                                        <TextBlock Text="{Binding DataContext.DistanceColumnHeader, ElementName=Root}" />
-                                    </DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Width="110" Binding="{Binding CompletedLaps}" Header="Laps" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-
-                        <DataGrid Grid.Row="1"
-                                  Grid.Column="2"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  IsReadOnly="True"
-                                  ItemsSource="{Binding CarSummaries}">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Width="*" Binding="{Binding CarModel}" Header="Car" />
-                                <DataGridTextColumn Width="120" Binding="{Binding DistanceDisplay, StringFormat=F2}">
-                                    <DataGridTextColumn.Header>
-                                        <TextBlock Text="{Binding DataContext.DistanceColumnHeader, ElementName=Root}" />
-                                    </DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Width="110" Binding="{Binding CompletedLaps}" Header="Laps" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Grid>
-                </DataTemplate>
-            </styles:SHTabControl.ContentTemplate>
-        </styles:SHTabControl>
-
-        <StackPanel Grid.Row="3"
-                    Margin="0,12,0,0"
-                    HorizontalAlignment="Right">
-            <TextBlock TextAlignment="Right"
-                       Foreground="{Binding StatusSectionForeground}"
-                       Text="{Binding DataStatus}" />
-            <TextBlock Margin="0,4,0,0"
-                       TextAlignment="Right"
-                       Foreground="{Binding StatusSectionForeground}"
-                       Text="{Binding CurrentContext}" />
-            <TextBlock Margin="0,4,0,0"
-                       TextAlignment="Right"
-                       Foreground="{Binding StatusSectionForeground}"
-                       Text="{Binding DatabasePath}" />
-        </StackPanel>
-
-        <StackPanel Grid.Row="4" Margin="0,12,0,0" Orientation="Horizontal">
-            <Button Width="90" Click="SaveButton_Click" Content="Save" />
-            <Button Width="90" Margin="8,0,0,0" Click="RefreshButton_Click" Content="Refresh" />
-            <Button Width="110" Margin="8,0,0,0" Click="ResetButton_Click" Content="Reset Settings" />
-            <Button Width="90" Margin="8,0,0,0" Click="ClearAllButton_Click" Content="Clear All" />
-        </StackPanel>
-    </Grid>
+    </ScrollViewer>
 </UserControl>
