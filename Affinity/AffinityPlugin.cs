@@ -427,7 +427,7 @@ namespace Affinity
 
                     if (usesStatefulDerivedDistance)
                     {
-                        absoluteSessionMeters = UpdateStatefulDerivedAbsoluteSessionDistanceMeters(data.NewData, trackLengthMeters);
+                        absoluteSessionMeters = UpdateStatefulDerivedAbsoluteSessionDistanceMeters(gameName, data.NewData, trackLengthMeters);
                     }
                     else
                     {
@@ -508,7 +508,20 @@ namespace Affinity
                         }
                     }
 
-                    if (lapDelta > 0)
+                    bool shouldIgnoreLapIncrement = LooksLikeIgnoredLapIncrement(gameName, data.NewData, completedLaps, lapDelta, trackLengthMeters);
+
+                    if (lapDelta > 0 && shouldIgnoreLapIncrement)
+                    {
+                        _lastObservedCompletedLaps = completedLaps;
+                        DataStatus = "Ignoring low-speed lap increment at line";
+                        IsTelemetryActive = true;
+
+                        if (shouldDebugTelemetry)
+                        {
+                            LogTelemetryDebugSnapshot("lap-increment-ignored", gameName, carModel, trackNameWithConfig, sessionId, data.NewData, deltaMeters, sessionMeters, lapDelta, false);
+                        }
+                    }
+                    else if (lapDelta > 0)
                     {
                         bucket.CompletedLaps += lapDelta;
                         bucket.LastUpdatedUtc = DateTime.UtcNow;
@@ -854,7 +867,7 @@ namespace Affinity
 
         private SessionDistanceSource ResolveSessionDistanceSource(string gameName, StatusDataBase status)
         {
-            if (IsAssettoCorsaGame(gameName) || IsRaceRoomGame(gameName) || IsAutomobilista2Game(gameName) || IsIRacingGame(gameName))
+            if (IsAssettoCorsaGame(gameName) || IsRaceRoomGame(gameName) || IsAutomobilista2Game(gameName) || IsIRacingGame(gameName) || IsRFactor2Game(gameName))
             {
                 return SessionDistanceSource.Derived;
             }
@@ -1019,7 +1032,7 @@ namespace Affinity
             }
         }
 
-        private double UpdateStatefulDerivedAbsoluteSessionDistanceMeters(StatusDataBase status, double trackLengthMeters)
+        private double UpdateStatefulDerivedAbsoluteSessionDistanceMeters(string gameName, StatusDataBase status, double trackLengthMeters)
         {
             if (status == null || trackLengthMeters <= 0.0)
             {
@@ -1039,6 +1052,12 @@ namespace Affinity
             }
 
             double deltaTrackPositionMeters = trackPositionMeters - _lastTrackPositionWithinLapMeters;
+            if (LooksLikeIgnoredLowSpeedLineWrap(gameName, status, deltaTrackPositionMeters, trackLengthMeters))
+            {
+                _lastTrackPositionWithinLapMeters = trackPositionMeters;
+                return _sessionStatefulAbsoluteMeters;
+            }
+
             if (deltaTrackPositionMeters < -(trackLengthMeters * 0.5))
             {
                 deltaTrackPositionMeters += trackLengthMeters;
@@ -1171,9 +1190,15 @@ namespace Affinity
             return string.Equals(normalized, "iracing", StringComparison.Ordinal);
         }
 
+        private bool IsRFactor2Game(string gameName)
+        {
+            string normalized = NormalizeGameName(gameName);
+            return string.Equals(normalized, "rfactor2", StringComparison.Ordinal);
+        }
+
         private bool UsesStatefulDerivedDistance(string gameName)
         {
-            return IsAutomobilista2Game(gameName) || IsIRacingGame(gameName);
+            return IsAutomobilista2Game(gameName) || IsIRacingGame(gameName) || IsRFactor2Game(gameName);
         }
 
         private bool LooksLikeTransientIracingZeroDrop(string gameName, StatusDataBase status, int completedLaps, double trackLengthMeters)
@@ -1191,6 +1216,43 @@ namespace Affinity
                 status.SpeedKmh < 1.0 &&
                 status.TrackPositionMeters <= 1.0 &&
                 status.TrackPositionPercent <= 0.001;
+        }
+
+        private bool LooksLikeIgnoredLowSpeedLineWrap(string gameName, StatusDataBase status, double deltaTrackPositionMeters, double trackLengthMeters)
+        {
+            if (!IsRFactor2Game(gameName) ||
+                status == null ||
+                trackLengthMeters <= 0.0 ||
+                Math.Abs(deltaTrackPositionMeters) <= trackLengthMeters * 0.5)
+            {
+                return false;
+            }
+
+            double trackPositionMeters = GetTrackPositionWithinLapMeters(status, trackLengthMeters);
+            bool nearLine = trackPositionMeters <= 5.0 || trackPositionMeters >= trackLengthMeters - 5.0;
+
+            return Math.Max(0, status.CompletedLaps) == 0 &&
+                status.SpeedKmh <= 80.0 &&
+                nearLine;
+        }
+
+        private bool LooksLikeIgnoredLapIncrement(string gameName, StatusDataBase status, int completedLaps, int lapDelta, double trackLengthMeters)
+        {
+            if (!IsRFactor2Game(gameName) ||
+                status == null ||
+                lapDelta <= 0 ||
+                trackLengthMeters <= 0.0)
+            {
+                return false;
+            }
+
+            double trackPositionMeters = GetTrackPositionWithinLapMeters(status, trackLengthMeters);
+            bool nearLine = trackPositionMeters <= 5.0 || trackPositionMeters >= trackLengthMeters - 5.0;
+
+            return completedLaps > 0 &&
+                status.SpeedKmh < 5.0 &&
+                nearLine &&
+                _lastObservedSessionMeters >= trackLengthMeters;
         }
 
         private void EnsureDefaultGameDebugLoggingSettings()

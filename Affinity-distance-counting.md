@@ -201,6 +201,41 @@ Why:
 - iRacing can briefly report `0` laps and `0` position without a real session restart.
 - Without a guard, that transient reset can double-count both distance and laps when telemetry snaps back a frame later.
 
+### rFactor 2
+
+Games matched:
+
+- `rfactor2`
+
+Distance source:
+
+- always `Derived`
+
+Why:
+
+- rFactor 2's `SessionOdo` did not behave like a trustworthy session-distance source.
+- Its pit and garage exit flow can also oscillate `TrackPosition` around the timing line before the session lap counter settles.
+
+Session origin:
+
+- not based on lap-count origin
+- distance is integrated from forward track-position movement across lap wraps
+
+Why:
+
+- rFactor 2 can start near the timing line and then move through pit and garage areas in a way that makes the generic lap-count-derived formula noisy.
+- Affinity therefore measures forward path traveled from successive track-position updates instead of reconstructing cumulative distance from lap count.
+
+Extra guards:
+
+- ignores low-speed track-position wraps near the timing line while leaving the pit and garage area
+- ignores near-stationary lap increments at the line
+
+Why:
+
+- rFactor 2 can bounce between just-before-line and just-after-line positions at low speed before the real lap flow stabilizes.
+- It can also report an extra completed lap when the car is effectively stopped on the line at the end of a run.
+
 ### Other Games
 
 For other games, Affinity currently auto-selects a source at session start:
