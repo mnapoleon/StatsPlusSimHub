@@ -54,6 +54,12 @@ Date: 2026-05-07
 - A Red Bull Ring National test showed the live derived session distance reaching only about `4.86 km`, while the stored bucket inflated to `11.43 km` because telemetry briefly dropped to `0` laps / `0` position and then snapped back.
 - iRacing now ignores `SessionOdo`, uses the same monotonic forward track-position model as AMS2, and suppresses transient zeroed telemetry frames so distance and lap totals are not counted twice.
 
+### rFactor 2
+
+- A Lime Rock Park test showed rFactor 2 starting near the timing line and then oscillating `TrackPosition` across the line at low speed while leaving the garage and pit area.
+- The generic derived path was noisy there, and the sim also reported an extra completed lap when the car ended up essentially stopped on the line.
+- rFactor 2 now ignores `SessionOdo`, uses the same stateful forward track-position model as AMS2 and iRacing, suppresses low-speed line-wrap noise near pit exit, and ignores near-stationary lap increments at the line.
+
 ## Important Telemetry Finding
 
 In classic `Assetto Corsa`, the SimHub overlay field labeled `SessionOdo` does not behave like a trustworthy per-session odometer.
