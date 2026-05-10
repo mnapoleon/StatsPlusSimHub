@@ -32,10 +32,5 @@ namespace Affinity
         {
             _plugin.RefreshDisplaySettings();
         }
-
-        private void ClearAllButton_Click(object sender, RoutedEventArgs e)
-        {
-            _plugin.ClearAllData();
-        }
     }
 }
