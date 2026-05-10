@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using GameReaderCommon;
 using Newtonsoft.Json;
 using SimHub.Plugins;
@@ -45,6 +46,7 @@ namespace Affinity
         };
 
         private bool _hasLoggedDataError;
+        private ImageSource _pictureIcon;
         private string _settingsPath = string.Empty;
         private string _databasePath = string.Empty;
         private string _debugLogPath = string.Empty;
@@ -81,7 +83,7 @@ namespace Affinity
 
         public AffinitySettings Settings { get; private set; } = new AffinitySettings();
 
-        public ImageSource PictureIcon => null;
+        public ImageSource PictureIcon => _pictureIcon ?? (_pictureIcon = CreatePictureIcon());
 
         public string LeftMenuTitle => "Affinity";
 
@@ -716,20 +718,6 @@ namespace Affinity
             }
 
             RefreshGameDebugLoggingOptions();
-        }
-
-        internal void ClearAllData()
-        {
-            _database = new AffinityDatabase();
-            SaveDatabase();
-            RefreshDistanceSummaries();
-            ResetActiveSession(clearContext: false);
-            CurrentContextDistanceKm = 0.0;
-            CurrentContextCompletedLaps = 0;
-            SessionDistanceKm = 0.0;
-            SessionCompletedLaps = 0;
-            DataStatus = "Cleared all stored affinity data";
-            IsTelemetryActive = false;
         }
 
         private AffinitySettings LoadSettings()
@@ -1446,6 +1434,17 @@ namespace Affinity
             OnPropertyChanged(nameof(CurrentContextDistanceDisplay));
             OnPropertyChanged(nameof(SessionDistanceDisplay));
             OnPropertyChanged(nameof(TotalDistanceDisplay));
+        }
+
+        private static ImageSource CreatePictureIcon()
+        {
+            BitmapImage image = new BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri("pack://application:,,,/Affinity;component/assets/affinity-icon-24.png", UriKind.Absolute);
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.EndInit();
+            image.Freeze();
+            return image;
         }
     }
 }
