@@ -10,6 +10,7 @@ Date: 2026-05-07
 
 - Classic `Assetto Corsa` was being distorted by a bad `SessionOdo` source and startup offsets.
 - We changed AC to ignore `SessionOdo`, use derived lap-position distance, and handle startup telemetry more safely.
+- We later moved AC and AC Evo onto the same stateful forward track-position model used by AMS2/iRacing/rFactor2, because line-start sessions could still undercount when the first wrap happened before the lap counter incremented.
 
 ## What We Confirmed
 
@@ -32,13 +33,12 @@ Date: 2026-05-07
 - Current behavior looks correct.
 - Exact 2-lap Red Bull Ring National test came back at about `4.69 km` on a `2336 m` track.
 - That is essentially correct.
+- A later Canadian Tire Motorsports Park test on a `3913.99 m` telemetry track finished at `7877.23 m` with `CompletedLaps = 2`, which is also correct for 2 laps plus a small amount beyond the line.
 
 ### Assetto Corsa EVO
 
-- Still wrong.
-- Two separate Evo cars each recorded about `8.6-8.7 km` on Red Bull Ring National.
-- Both stored only `CompletedLaps: 1`.
-- That strongly suggests AC Evo telemetry semantics differ from classic AC, and the current derived-distance logic is still interpreting Evo fields incorrectly.
+- Earlier Evo runs were wrong and showed the same general class of issue as AC around lap/position semantics.
+- AC Evo now follows the same stateful forward track-position model as classic AC.
 
 ### Automobilista 2
 
