@@ -355,6 +355,17 @@ namespace Affinity
                 string carModel = NormalizeContextValue(data.NewData.CarModel, "Unknown Car");
                 string trackName = NormalizeContextValue(data.NewData.TrackName, "Unknown Track");
                 string trackNameWithConfig = NormalizeContextValue(data.NewData.TrackNameWithConfig, trackName);
+
+                if (!IsSupportedGame(gameName))
+                {
+                    DataStatus = $"Unsupported game: {gameName}";
+                    IsTelemetryActive = false;
+                    ResetActiveSession(clearContext: false);
+                    PublishProperties(pluginManager, gameName, string.Empty, string.Empty, 0.0, 0, 0.0, 0);
+                    _hasLoggedDataError = false;
+                    return;
+                }
+
                 if (EnsureGameDebugLoggingConfigured(gameName))
                 {
                     RefreshGameDebugLoggingOptions();
@@ -1149,6 +1160,15 @@ namespace Affinity
         private static string BuildContextKey(string gameName, string carModel, string trackNameWithConfig)
         {
             return $"{gameName}|{carModel}|{trackNameWithConfig}";
+        }
+
+        private bool IsSupportedGame(string gameName)
+        {
+            return IsAssettoCorsaGame(gameName) ||
+                IsRaceRoomGame(gameName) ||
+                IsAutomobilista2Game(gameName) ||
+                IsIRacingGame(gameName) ||
+                IsRFactor2Game(gameName);
         }
 
         private bool IsAssettoCorsaGame(string gameName)
