@@ -922,7 +922,7 @@ namespace Affinity
 
         private bool ShouldUseZeroSessionOrigin(string gameName, SessionDistanceSource source)
         {
-            return source == SessionDistanceSource.Derived && IsAssettoCorsaGame(gameName);
+            return source == SessionDistanceSource.Derived && IsAssettoCorsaGame(gameName) && !UsesStatefulDerivedDistance(gameName);
         }
 
         private bool ShouldDebugTelemetry(string gameName)
@@ -1206,7 +1206,10 @@ namespace Affinity
 
         private bool UsesStatefulDerivedDistance(string gameName)
         {
-            return IsAutomobilista2Game(gameName) || IsIRacingGame(gameName) || IsRFactor2Game(gameName);
+            return IsAssettoCorsaGame(gameName) ||
+                IsAutomobilista2Game(gameName) ||
+                IsIRacingGame(gameName) ||
+                IsRFactor2Game(gameName);
         }
 
         private bool LooksLikeTransientIracingZeroDrop(string gameName, StatusDataBase status, int completedLaps, double trackLengthMeters)

@@ -82,13 +82,14 @@ Why:
 
 - The SimHub-exposed `SessionOdo` value was not reliable as a clean session odometer.
 
-Session origin:
+Distance model:
 
-- forced to `0` when using the derived source
+- uses stateful forward track-position accumulation instead of `CompletedLaps * TrackLength + TrackPosition`
 
 Why:
 
-- This preserves real pit-lane and out-lap driving instead of subtracting it away as a startup offset.
+- This avoids undercounting when AC starts the session near the timing line and wraps to `0` before the lap counter catches up.
+- It also keeps the saved JSON total aligned with the live session distance instead of relying on lap-counter timing.
 
 Extra guards:
 
@@ -104,9 +105,9 @@ Distance source:
 
 - always `Derived`
 
-Session origin:
+Distance model:
 
-- forced to `0` when using the derived source
+- uses the same stateful forward track-position accumulation model as classic Assetto Corsa
 
 Behavior is intended to mirror classic Assetto Corsa.
 
@@ -257,7 +258,9 @@ At session start, Affinity records:
 - session origin
 - current completed lap count
 
-For derived-source AC/ACE/RRRE sessions, the origin is intentionally `0`.
+For derived-source sessions that still use the simple lap-count formula, the origin may be intentionally forced to `0`.
+
+AC/ACE no longer rely on that zero-origin behavior, because they now use the stateful forward track-position model instead.
 
 For other games, the origin is the chosen absolute session distance at the time the session begins.
 
