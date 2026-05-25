@@ -1,0 +1,285 @@
+name: Release
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  tag-and-release:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Resolve merged PR and bump type
+        id: pr
+        shell: pwsh
+        run: |
+          $title = '${{ github.event.pull_request.title }}'.Trim()
+          $match = [regex]::Match($title, '^(major|minor|patch):\s+(.+)$', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+
+          if (-not $match.Success) {
+            throw "Merged PR title '$title' does not match the required semver prefix format."
+          }
+
+          "should_release=true" >> $env:GITHUB_OUTPUT
+          "pull_number=${{ github.event.pull_request.number }}" >> $env:GITHUB_OUTPUT
+          "pull_title=$title" >> $env:GITHUB_OUTPUT
+          "bump=$($match.Groups[1].Value.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - name: Compute next semantic version
+        id: version
+        if: steps.pr.outputs.should_release == 'true'
+        shell: pwsh
+        run: |
+          $bump = '${{ steps.pr.outputs.bump }}'
+          $tagNames = git tag --list | Where-Object { $_ -match '^v(\d+)\.(\d+)\.(\d+)$' }
+
+          $versions = foreach ($tag in $tagNames) {
+            if ($tag -match '^v(\d+)\.(\d+)\.(\d+)$') {
+              [pscustomobject]@{
+                Tag = $tag
+                Major = [int]$matches[1]
+                Minor = [int]$matches[2]
+                Patch = [int]$matches[3]
+              }
+            }
+          }
+
+          if ($versions) {
+            $latest = $versions |
+              Sort-Object Major, Minor, Patch |
+              Select-Object -Last 1
+            $major = $latest.Major
+            $minor = $latest.Minor
+            $patch = $latest.Patch
+            $previousTag = $latest.Tag
+          } else {
+            $major = 0
+            $minor = 0
+            $patch = 0
+            $previousTag = ''
+          }
+
+          switch ($bump) {
+            'major' {
+              $major += 1
+              $minor = 0
+              $patch = 0
+            }
+            'minor' {
+              $minor += 1
+              $patch = 0
+            }
+            'patch' {
+              $patch += 1
+            }
+            default {
+              throw "Unsupported bump type: $bump"
+            }
+          }
+
+          $nextTag = "v$major.$minor.$patch"
+          "tag=$nextTag" >> $env:GITHUB_OUTPUT
+          "previous_tag=$previousTag" >> $env:GITHUB_OUTPUT
+
+      - name: Build release notes
+        id: notes
+        if: steps.pr.outputs.should_release == 'true'
+        shell: pwsh
+        run: |
+          $previousTag = '${{ steps.version.outputs.previous_tag }}'
+          $nextTag = '${{ steps.version.outputs.tag }}'
+          $pullNumber = '${{ steps.pr.outputs.pull_number }}'
+          $pullTitle = '${{ steps.pr.outputs.pull_title }}'
+          $bump = '${{ steps.pr.outputs.bump }}'
+          $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+
+          if ([string]::IsNullOrWhiteSpace($previousTag)) {
+            $range = (git rev-list --max-parents=0 HEAD | Select-Object -First 1) + '..' + '${{ github.event.pull_request.merge_commit_sha }}'
+            $previousLabel = 'Initial release'
+          } else {
+            $range = "$previousTag..${{ github.event.pull_request.merge_commit_sha }}"
+            $previousLabel = $previousTag
+          }
+
+          $commitLines = git log $range --pretty=format:'- %s (%h)'
+          if ([string]::IsNullOrWhiteSpace(($commitLines -join '').Trim())) {
+            $commitLines = '- No additional commits found in release range.'
+          }
+
+          @(
+            "# $nextTag"
+            ""
+            "## Release Summary"
+            "- Semver bump: $bump"
+            "- Released from PR #$($pullNumber): $pullTitle"
+            "- Previous release: $previousLabel"
+            ""
+            "## Changes Since Last Release"
+            $commitLines
+          ) | Set-Content -Path $notesPath -Encoding UTF8
+
+          "notes_path=$notesPath" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        if: steps.pr.outputs.should_release == 'true'
+        shell: pwsh
+        run: dotnet restore .\StatsPlus.sln /p:UseSimHubSdkStubs=true
+
+      - name: Build plugin
+        if: steps.pr.outputs.should_release == 'true'
+        shell: pwsh
+        run: dotnet build .\StatsPlus\StatsPlus.csproj --configuration Release --no-restore /p:UseSimHubSdkStubs=true /p:SimHubInstallPath=C:\does-not-exist
+
+      - name: Package release asset
+        id: package
+        if: steps.pr.outputs.should_release == 'true'
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.version.outputs.tag }}'
+          $buildOutput = '.\StatsPlus\bin\Release\net48'
+          $stagingDir = Join-Path $env:RUNNER_TEMP 'statsplus-release'
+          $assetName = "StatsPlus-$tag.zip"
+          $assetPath = Join-Path $env:RUNNER_TEMP $assetName
+
+          Remove-Item -LiteralPath $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $stagingDir | Out-Null
+
+          Get-ChildItem -Path $buildOutput -Recurse -File |
+            Where-Object { $_.FullName -notmatch '\\ref\\' } |
+            ForEach-Object {
+              $relativePath = $_.FullName.Substring((Resolve-Path $buildOutput).Path.Length).TrimStart('\')
+              $destinationPath = Join-Path $stagingDir $relativePath
+              $destinationDirectory = Split-Path -Parent $destinationPath
+              if (-not (Test-Path $destinationDirectory)) {
+                New-Item -ItemType Directory -Path $destinationDirectory | Out-Null
+              }
+              Copy-Item -LiteralPath $_.FullName -Destination $destinationPath
+            }
+
+          Set-Content -Path (Join-Path $stagingDir 'README.txt') -Value @(
+            'StatsPlus SimHub Plugin'
+            ''
+            'Install:'
+            '1. Close SimHub.'
+            '2. Extract the zip.'
+            '3. Copy the extracted files into your SimHub install directory, preserving folders.'
+            '4. Start SimHub.'
+          ) -Encoding UTF8
+
+          if (Test-Path $assetPath) {
+            Remove-Item -LiteralPath $assetPath -Force
+          }
+
+          Compress-Archive -Path (Join-Path $stagingDir '*') -DestinationPath $assetPath
+          "asset_name=$assetName" >> $env:GITHUB_OUTPUT
+          "asset_path=$assetPath" >> $env:GITHUB_OUTPUT
+
+      - name: Create tag and GitHub release
+        id: release
+        if: steps.pr.outputs.should_release == 'true'
+        uses: actions/github-script@v7
+        env:
+          NEXT_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_NOTES_PATH: ${{ steps.notes.outputs.notes_path }}
+        with:
+          script: |
+            const fs = require("fs");
+            const tag = process.env.NEXT_TAG;
+            const releaseBody = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
+
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${tag}`,
+              });
+
+              core.notice(`Tag ${tag} already exists; skipping tag and release creation.`);
+              const existingRelease = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
+              core.setOutput("release_id", String(existingRelease.data.id));
+              return;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${tag}`,
+              sha: "${{ github.event.pull_request.merge_commit_sha }}",
+            });
+
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              target_commitish: "${{ github.event.pull_request.merge_commit_sha }}",
+              name: tag,
+              body: releaseBody,
+            });
+
+            core.setOutput("release_id", String(release.data.id));
+            core.notice(`Created ${tag} and published a GitHub release.`);
+
+      - name: Upload plugin asset
+        if: steps.pr.outputs.should_release == 'true'
+        uses: actions/github-script@v7
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+          ASSET_NAME: ${{ steps.package.outputs.asset_name }}
+          ASSET_PATH: ${{ steps.package.outputs.asset_path }}
+        with:
+          script: |
+            const fs = require("fs");
+            const releaseId = Number(process.env.RELEASE_ID);
+            const assetName = process.env.ASSET_NAME;
+            const assetPath = process.env.ASSET_PATH;
+            const assetData = fs.readFileSync(assetPath);
+
+            const existingAssets = await github.rest.repos.listReleaseAssets({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId,
+            });
+
+            const existingAsset = existingAssets.data.find(asset => asset.name === assetName);
+            if (existingAsset) {
+              await github.rest.repos.deleteReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                asset_id: existingAsset.id,
+              });
+            }
+
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId,
+              name: assetName,
+              data: assetData,
+            });
+
+            core.notice(`Uploaded ${assetName} to release ${releaseId}.`);

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore .\StatsPlus.sln /p:UseSimHubSdkStubs=true
+
+      - name: Build
+        run: dotnet build .\StatsPlus.sln --configuration Release --no-restore /p:UseSimHubSdkStubs=true /p:SimHubInstallPath=C:\does-not-exist
+
+      - name: Test
+        run: dotnet test .\StatsPlus.Tests\StatsPlus.Tests.csproj --configuration Release --no-build /p:UseSimHubSdkStubs=true /p:SimHubInstallPath=C:\does-not-exist

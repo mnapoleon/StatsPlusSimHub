@@ -1,0 +1,34 @@
+name: PR Title
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate semantic PR title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title.trim();
+            const pattern = /^(major|minor|patch):\s.+/i;
+
+            if (!pattern.test(title)) {
+              core.setFailed(
+                `PR title "${title}" does not match the required format.\n` +
+                `Use one of:\n` +
+                `- major: short summary\n` +
+                `- minor: short summary\n` +
+                `- patch: short summary`
+              );
+              return;
+            }
+
+            core.info(`PR title "${title}" is valid.`);
