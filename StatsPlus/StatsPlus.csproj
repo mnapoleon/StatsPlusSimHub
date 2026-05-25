@@ -16,6 +16,9 @@
 
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseSimHubSdkStubs)' != 'true'">
     <Reference Include="SimHub.Plugins">
       <HintPath>C:\Program Files (x86)\SimHub\SimHub.Plugins.dll</HintPath>
       <Private>False</Private>
@@ -40,6 +43,12 @@
       <HintPath>C:\Program Files (x86)\SimHub\log4net.dll</HintPath>
       <Private>False</Private>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseSimHubSdkStubs)' == 'true'">
+    <ProjectReference Include="..\SdkStubs\SimHub.Plugins\SimHub.Plugins.csproj" />
+    <ProjectReference Include="..\SdkStubs\GameReaderCommon\GameReaderCommon.csproj" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>

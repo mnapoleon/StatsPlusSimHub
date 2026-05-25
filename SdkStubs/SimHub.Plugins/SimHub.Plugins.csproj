@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SimHub.Plugins</AssemblyName>
+    <RootNamespace>SimHub.Plugins</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <ProjectReference Include="..\GameReaderCommon\GameReaderCommon.csproj" />
+  </ItemGroup>
+</Project>
