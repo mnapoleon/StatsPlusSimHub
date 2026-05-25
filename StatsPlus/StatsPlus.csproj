@@ -5,6 +5,7 @@
     <OutputType>Library</OutputType>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AssemblyName>StatsPlus</AssemblyName>
     <RootNamespace>StatsPlus</RootNamespace>
     <SimHubInstallPath Condition="'$(SimHubInstallPath)' == ''">C:\Program Files (x86)\SimHub\</SimHubInstallPath>
@@ -42,6 +43,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="assets\statsplus-icon-24.png" />
   </ItemGroup>
 
@@ -52,17 +57,12 @@
   </ItemGroup>
 
   <Target Name="CopyPluginToSimHub" AfterTargets="Build" Condition="Exists('$(SimHubInstallPath)')">
+    <ItemGroup>
+      <PluginOutput Include="$(TargetDir)**\*.*" Exclude="$(TargetDir)ref\**\*.*" />
+    </ItemGroup>
     <Message Text="Copying StatsPlus build output to $(SimHubInstallPath)" Importance="High" />
-    <Copy SourceFiles="$(TargetPath)"
-          DestinationFolder="$(SimHubInstallPath)"
+    <Copy SourceFiles="@(PluginOutput)"
+          DestinationFiles="@(PluginOutput->'$(SimHubInstallPath)%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="false" />
-    <Copy SourceFiles="$(TargetDir)$(TargetName).pdb"
-          DestinationFolder="$(SimHubInstallPath)"
-          SkipUnchangedFiles="false"
-          Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
-    <Copy SourceFiles="$(ProjectDir)ac_track_id_map.json"
-          DestinationFolder="$(SimHubInstallPath)"
-          SkipUnchangedFiles="false"
-          Condition="Exists('$(ProjectDir)ac_track_id_map.json')" />
   </Target>
 </Project>

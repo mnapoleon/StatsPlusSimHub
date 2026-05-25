@@ -119,7 +119,7 @@
                         <StackPanel Margin="12">
                             <TextBlock FontWeight="Bold" Text="StatsPlus" />
                             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">
-                                Records lap and sector times for the active game using simple JSON persistence.
+                                Records lap and sector times for the active game using a local SQLite lap history store.
                             </TextBlock>
                             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">
                                 Published properties: StatsPlus.Version, StatsPlus.Enabled, StatsPlus.Label, StatsPlus.GameName,
@@ -187,7 +187,7 @@
                     <styles:SHSection Title="Stored History">
                         <StackPanel Margin="12">
                             <TextBlock Margin="0,0,0,10" TextWrapping="Wrap">
-                                Recorded laps are partitioned in JSON by game, then car, then track variation from TrackNameWithConfig.
+                                Recorded laps are partitioned by game, car, and track variation in the local lap history database.
                             </TextBlock>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                 <Button Width="150"
@@ -213,7 +213,7 @@
                                                   IsReadOnly="True"
                                                   SelectedItem="{Binding DataContext.SelectedTrackSummary, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=TwoWay}">
                                             <DataGrid.Columns>
-                                                <DataGridTextColumn Header="Car" Binding="{Binding CarModel}" Width="180" />
+                                                <DataGridTextColumn Header="Car" Binding="{Binding CarModelDisplay}" Width="180" />
                                                 <DataGridTextColumn Header="Track" Binding="{Binding TrackName}" Width="120" />
                                                 <DataGridTextColumn Header="Variation" Binding="{Binding TrackNameWithConfigDisplay}" Width="180" />
                                                 <DataGridTextColumn Header="Laps" Binding="{Binding LapCount}" Width="60" />

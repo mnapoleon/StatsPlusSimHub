@@ -58,6 +58,8 @@ namespace StatsPlus
 
         public string CarModel { get; set; } = string.Empty;
 
+        public string CarModelDisplay { get; set; } = string.Empty;
+
         public string TrackName { get; set; } = string.Empty;
 
         public string TrackNameWithConfig { get; set; } = string.Empty;
@@ -73,9 +75,13 @@ namespace StatsPlus
 
     public class RecordedLapView
     {
+        public long LapId { get; set; }
+
         public string GameName { get; set; } = string.Empty;
 
         public string CarModel { get; set; } = string.Empty;
+
+        public string CarModelDisplay { get; set; } = string.Empty;
 
         public string TrackName { get; set; } = string.Empty;
 
