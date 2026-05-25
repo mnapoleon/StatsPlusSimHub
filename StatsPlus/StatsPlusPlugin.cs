@@ -6,7 +6,6 @@ using System.Linq;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -23,14 +22,17 @@ namespace StatsPlus
     public class StatsPlusPlugin : IPlugin, IDataPlugin, IWPFSettingsV2, INotifyPropertyChanged
     {
         private const string SettingsFileName = "StatsPlus.settings.json";
-        private const string DataFileName = "StatsPlus.laps.json";
+        private const string LegacyDataFileName = "StatsPlus.laps.json";
+        private const string SqliteDataFileName = "StatsPlus.laps.db";
         private const string Version = "0.2.0";
 
         private bool _hasLoggedDataError;
         private string _settingsPath = string.Empty;
+        private string _legacyDatabasePath = string.Empty;
         private string _databasePath = string.Empty;
         private string _acTrackMapPath = string.Empty;
         private LapDatabase _database = new LapDatabase();
+        private StatsPlusSqliteRepository _sqliteRepository;
         private Dictionary<string, string> _assettoCorsaTrackMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private double _sessionBestLapSeconds;
         private double _lastLapSeconds;
@@ -75,7 +77,7 @@ namespace StatsPlus
 
         public string SelectedTrackCaption => SelectedTrackSummary == null
             ? "Select a track row above to inspect recorded laps."
-            : $"{SelectedTrackSummary.GameName} / {SelectedTrackSummary.CarModel} / {SelectedTrackSummary.TrackNameWithConfigDisplay}";
+            : $"{SelectedTrackSummary.GameName} / {SelectedTrackSummary.CarModelDisplay} / {SelectedTrackSummary.TrackNameWithConfigDisplay}";
 
         public bool HasSelectedLap => SelectedLap != null;
 
@@ -307,11 +309,12 @@ namespace StatsPlus
         {
             PluginManager = pluginManager;
             _settingsPath = pluginManager.GetCommonStoragePath(SettingsFileName);
-            _databasePath = pluginManager.GetCommonStoragePath(DataFileName);
+            _legacyDatabasePath = pluginManager.GetCommonStoragePath(LegacyDataFileName);
+            _databasePath = pluginManager.GetCommonStoragePath(SqliteDataFileName);
             _acTrackMapPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ac_track_id_map.json");
             Settings = LoadSettings();
             _assettoCorsaTrackMap = LoadAssettoCorsaTrackMap();
-            _database = LoadDatabase();
+            InitializeDatabase();
 
             pluginManager.AddProperty("StatsPlus.Version", GetType(), Version);
             pluginManager.AddProperty("StatsPlus.Enabled", GetType(), Settings.EnablePlugin);
@@ -401,7 +404,8 @@ namespace StatsPlus
 
         public void End(PluginManager pluginManager)
         {
-            SaveDatabase();
+            _sqliteRepository?.Dispose();
+            _sqliteRepository = null;
             SaveSettings();
             SimHub.Logging.Current.Info("StatsPlus - Shutting down");
         }
@@ -417,6 +421,49 @@ namespace StatsPlus
         public System.Windows.Forms.Control GetSettingsControl(PluginManager pluginManager)
         {
             return null;
+        }
+
+        private bool UseSqlite => _sqliteRepository != null;
+
+        private void InitializeDatabase()
+        {
+            try
+            {
+                _sqliteRepository = new StatsPlusSqliteRepository(_databasePath);
+                _sqliteRepository.Initialize();
+
+                if (!_sqliteRepository.HasLapData() && File.Exists(_legacyDatabasePath))
+                {
+                    LapDatabase legacyDatabase = LoadDatabase();
+                    _sqliteRepository.ImportLegacyDatabase(legacyDatabase);
+                    BackupLegacyDatabaseFile();
+                    SimHub.Logging.Current.Info($"StatsPlus - Migrated lap history from {_legacyDatabasePath} to {_databasePath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Error($"StatsPlus - Failed to initialize SQLite database, falling back to JSON storage: {ex}");
+                _sqliteRepository?.Dispose();
+                _sqliteRepository = null;
+                _databasePath = _legacyDatabasePath;
+                _database = LoadDatabase();
+            }
+        }
+
+        private void BackupLegacyDatabaseFile()
+        {
+            if (!File.Exists(_legacyDatabasePath))
+            {
+                return;
+            }
+
+            string backupPath = _legacyDatabasePath + ".bak";
+            if (File.Exists(backupPath))
+            {
+                File.Delete(backupPath);
+            }
+
+            File.Move(_legacyDatabasePath, backupPath);
         }
 
         private PluginSettings LoadSettings()
@@ -521,23 +568,30 @@ namespace StatsPlus
                 return;
             }
 
-            if (!TryGetTrackBucket(SelectedLap.GameName, SelectedLap.CarModel, SelectedLap.TrackNameWithConfig, out TrackBucket trackBucket))
+            if (UseSqlite)
             {
-                return;
+                _sqliteRepository.ToggleLapValidity(SelectedLap.LapId);
             }
-
-            RecordedLap lap = trackBucket.Laps.FirstOrDefault(candidate =>
-                candidate.LapNumber == SelectedLap.LapNumber &&
-                candidate.TimestampUtc == SelectedLap.TimestampUtc);
-
-            if (lap == null)
+            else
             {
-                return;
-            }
+                if (!TryGetTrackBucket(SelectedLap.GameName, SelectedLap.CarModel, SelectedLap.TrackNameWithConfig, out TrackBucket trackBucket))
+                {
+                    return;
+                }
 
-            lap.IsValid = !lap.IsValid;
-            trackBucket.LastUpdatedUtc = DateTime.UtcNow;
-            SaveDatabase();
+                RecordedLap lap = trackBucket.Laps.FirstOrDefault(candidate =>
+                    candidate.LapNumber == SelectedLap.LapNumber &&
+                    candidate.TimestampUtc == SelectedLap.TimestampUtc);
+
+                if (lap == null)
+                {
+                    return;
+                }
+
+                lap.IsValid = !lap.IsValid;
+                trackBucket.LastUpdatedUtc = DateTime.UtcNow;
+                SaveDatabase();
+            }
             LoadSelectedTrackLaps(SelectedLap.TimestampUtc);
             RefreshStoredTrackSummaries();
             RefreshPersonalBestProperties(PluginManager);
@@ -556,8 +610,15 @@ namespace StatsPlus
                 return;
             }
 
-            _database.Games.Remove(SelectedGameHistoryTab.GameName);
-            SaveDatabase();
+            if (UseSqlite)
+            {
+                _sqliteRepository.DeleteGameData(SelectedGameHistoryTab.GameName);
+            }
+            else
+            {
+                _database.Games.Remove(SelectedGameHistoryTab.GameName);
+                SaveDatabase();
+            }
 
             if (string.Equals(CurrentGameName, SelectedGameHistoryTab.GameName, StringComparison.OrdinalIgnoreCase))
             {
@@ -580,8 +641,15 @@ namespace StatsPlus
 
         internal void ClearAllData()
         {
-            _database = new LapDatabase();
-            SaveDatabase();
+            if (UseSqlite)
+            {
+                _sqliteRepository.ClearAllData();
+            }
+            else
+            {
+                _database = new LapDatabase();
+                SaveDatabase();
+            }
 
             SessionLapCount = 0;
             SessionBestLapSeconds = 0.0;
@@ -604,12 +672,12 @@ namespace StatsPlus
         {
             try
             {
-                if (!File.Exists(_databasePath))
+                if (!File.Exists(_legacyDatabasePath))
                 {
                     return new LapDatabase();
                 }
 
-                string json = File.ReadAllText(_databasePath, Encoding.UTF8);
+                string json = File.ReadAllText(_legacyDatabasePath, Encoding.UTF8);
                 LapDatabase database = JsonConvert.DeserializeObject<LapDatabase>(json);
                 database = database ?? new LapDatabase();
                 NormalizeLoadedDatabase(database);
@@ -644,16 +712,21 @@ namespace StatsPlus
 
         private void SaveDatabase()
         {
+            if (UseSqlite)
+            {
+                return;
+            }
+
             try
             {
-                string directory = Path.GetDirectoryName(_databasePath);
+                string directory = Path.GetDirectoryName(_legacyDatabasePath);
                 if (!string.IsNullOrEmpty(directory))
                 {
                     Directory.CreateDirectory(directory);
                 }
 
                 string json = JsonConvert.SerializeObject(_database, Formatting.Indented);
-                File.WriteAllText(_databasePath, json, Encoding.UTF8);
+                File.WriteAllText(_legacyDatabasePath, json, Encoding.UTF8);
             }
             catch (Exception ex)
             {
@@ -796,10 +869,18 @@ namespace StatsPlus
 
         private void AddLapToDatabase(string gameName, string carModel, string trackName, string trackNameWithConfig, RecordedLap lap)
         {
-            TrackBucket track = GetOrCreateTrackBucket(gameName, carModel, trackName, trackNameWithConfig);
-            track.LastUpdatedUtc = DateTime.UtcNow;
-            track.Laps.Add(lap);
-            SaveDatabase();
+            if (UseSqlite)
+            {
+                _sqliteRepository.AddLap(gameName, carModel, trackName, trackNameWithConfig, lap);
+            }
+            else
+            {
+                TrackBucket track = GetOrCreateTrackBucket(gameName, carModel, trackName, trackNameWithConfig);
+                track.LastUpdatedUtc = DateTime.UtcNow;
+                track.Laps.Add(lap);
+                SaveDatabase();
+            }
+
             RefreshPersonalBestProperties(PluginManager);
         }
 
@@ -836,6 +917,11 @@ namespace StatsPlus
 
         private double GetBestLapSeconds(string gameName, string carModel, string trackNameWithConfig)
         {
+            if (UseSqlite)
+            {
+                return _sqliteRepository.GetBestLapSeconds(gameName, carModel, trackNameWithConfig);
+            }
+
             if (!TryGetTrackBucket(gameName, carModel, trackNameWithConfig, out TrackBucket trackBucket))
             {
                 return 0.0;
@@ -850,6 +936,18 @@ namespace StatsPlus
 
         private IEnumerable<StoredTrackSummary> BuildTrackSummaries()
         {
+            if (UseSqlite)
+            {
+                foreach (StoredTrackSummary summary in _sqliteRepository.GetTrackSummaries())
+                {
+                    summary.CarModelDisplay = ResolveCarDisplayName(summary.GameName, summary.CarModel, summary.CarModelDisplay);
+                    summary.TrackNameWithConfigDisplay = ResolveTrackDisplayName(summary.GameName, summary.TrackNameWithConfig, summary.TrackNameWithConfigDisplay);
+                    yield return summary;
+                }
+
+                yield break;
+            }
+
             foreach (KeyValuePair<string, GameBucket> gameEntry in _database.Games)
             {
                 foreach (KeyValuePair<string, CarBucket> carEntry in gameEntry.Value.Cars)
@@ -867,6 +965,7 @@ namespace StatsPlus
                         {
                             GameName = gameEntry.Key,
                             CarModel = carEntry.Key,
+                            CarModelDisplay = ResolveCarDisplayName(gameEntry.Key, carEntry.Key, string.Empty),
                             TrackName = track.TrackName,
                             TrackNameWithConfig = string.IsNullOrWhiteSpace(track.TrackNameWithConfig) ? trackEntry.Key : track.TrackNameWithConfig,
                             TrackNameWithConfigDisplay = GetDisplayTrackNameWithConfig(gameEntry.Key, string.IsNullOrWhiteSpace(track.TrackNameWithConfig) ? trackEntry.Key : track.TrackNameWithConfig),
@@ -902,6 +1001,11 @@ namespace StatsPlus
 
         private Dictionary<string, double> BuildPersonalBestPropertyValues()
         {
+            if (UseSqlite)
+            {
+                return _sqliteRepository.GetPersonalBestPropertyValues();
+            }
+
             var personalBestValues = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
 
             foreach (KeyValuePair<string, GameBucket> gameEntry in _database.Games)
@@ -942,20 +1046,9 @@ namespace StatsPlus
             _registeredPersonalBestProperties.Add(propertyName);
         }
 
-        private static string BuildPersonalBestPropertyName(string gameName, string carModel, string trackVariation)
+        internal static string BuildPersonalBestPropertyName(string gameName, string carModel, string trackVariation)
         {
-            return $"StatsPlus.PersonalBest.{SanitizePropertySegment(gameName)}.{SanitizePropertySegment(carModel)}.{SanitizePropertySegment(trackVariation)}";
-        }
-
-        private static string SanitizePropertySegment(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return "Unknown";
-            }
-
-            string sanitized = Regex.Replace(value.Trim(), @"[^A-Za-z0-9]+", "_").Trim('_');
-            return string.IsNullOrWhiteSpace(sanitized) ? "Unknown" : sanitized;
+            return StatsPlusPropertyNames.BuildPersonalBestPropertyName(gameName, carModel, trackVariation);
         }
 
         private void PublishLapProperties(PluginManager pluginManager)
@@ -1122,29 +1215,47 @@ namespace StatsPlus
 
         private void LoadSelectedTrackLaps(DateTime? selectedTimestamp = null)
         {
-            List<RecordedLapView> lapViews = new List<RecordedLapView>();
+            List<RecordedLapView> lapViews;
 
-            if (SelectedTrackSummary != null &&
-                TryGetTrackBucket(SelectedTrackSummary.GameName, SelectedTrackSummary.CarModel, SelectedTrackSummary.TrackNameWithConfig, out TrackBucket trackBucket))
+            if (UseSqlite)
             {
-                lapViews = trackBucket.Laps
-                    .OrderByDescending(lap => lap.TimestampUtc)
-                    .Select(lap => new RecordedLapView
-                    {
-                        GameName = trackBucket.GameName,
-                        CarModel = trackBucket.CarModel,
-                        TrackName = trackBucket.TrackName,
-                        TrackNameWithConfig = trackBucket.TrackNameWithConfig,
-                        TrackNameWithConfigDisplay = GetDisplayTrackNameWithConfig(trackBucket.GameName, trackBucket.TrackNameWithConfig),
-                        LapNumber = lap.LapNumber,
-                        LapTimeSeconds = lap.LapTimeSeconds,
-                        Sector1Seconds = lap.Sector1Seconds,
-                        Sector2Seconds = lap.Sector2Seconds,
-                        Sector3Seconds = lap.Sector3Seconds,
-                        IsValid = lap.IsValid,
-                        TimestampUtc = lap.TimestampUtc
-                    })
-                    .ToList();
+                lapViews = SelectedTrackSummary == null
+                    ? new List<RecordedLapView>()
+                    : _sqliteRepository.GetTrackLaps(SelectedTrackSummary.GameName, SelectedTrackSummary.CarModel, SelectedTrackSummary.TrackNameWithConfig);
+
+                foreach (RecordedLapView lapView in lapViews)
+                {
+                    lapView.CarModelDisplay = ResolveCarDisplayName(lapView.GameName, lapView.CarModel, lapView.CarModelDisplay);
+                    lapView.TrackNameWithConfigDisplay = ResolveTrackDisplayName(lapView.GameName, lapView.TrackNameWithConfig, lapView.TrackNameWithConfigDisplay);
+                }
+            }
+            else
+            {
+                lapViews = new List<RecordedLapView>();
+
+                if (SelectedTrackSummary != null &&
+                    TryGetTrackBucket(SelectedTrackSummary.GameName, SelectedTrackSummary.CarModel, SelectedTrackSummary.TrackNameWithConfig, out TrackBucket trackBucket))
+                {
+                    lapViews = trackBucket.Laps
+                        .OrderByDescending(lap => lap.TimestampUtc)
+                        .Select(lap => new RecordedLapView
+                        {
+                            GameName = trackBucket.GameName,
+                            CarModel = trackBucket.CarModel,
+                            CarModelDisplay = ResolveCarDisplayName(trackBucket.GameName, trackBucket.CarModel, string.Empty),
+                            TrackName = trackBucket.TrackName,
+                            TrackNameWithConfig = trackBucket.TrackNameWithConfig,
+                            TrackNameWithConfigDisplay = GetDisplayTrackNameWithConfig(trackBucket.GameName, trackBucket.TrackNameWithConfig),
+                            LapNumber = lap.LapNumber,
+                            LapTimeSeconds = lap.LapTimeSeconds,
+                            Sector1Seconds = lap.Sector1Seconds,
+                            Sector2Seconds = lap.Sector2Seconds,
+                            Sector3Seconds = lap.Sector3Seconds,
+                            IsValid = lap.IsValid,
+                            TimestampUtc = lap.TimestampUtc
+                        })
+                        .ToList();
+                }
             }
 
             SelectedTrackLaps.Clear();
@@ -1172,6 +1283,18 @@ namespace StatsPlus
             image.EndInit();
             image.Freeze();
             return image;
+        }
+
+        private static string ResolveCarDisplayName(string gameName, string rawCarModel, string displayCarModel)
+        {
+            return string.IsNullOrWhiteSpace(displayCarModel) ? rawCarModel : displayCarModel;
+        }
+
+        private string ResolveTrackDisplayName(string gameName, string rawTrackNameWithConfig, string displayTrackNameWithConfig)
+        {
+            return string.IsNullOrWhiteSpace(displayTrackNameWithConfig)
+                ? GetDisplayTrackNameWithConfig(gameName, rawTrackNameWithConfig)
+                : displayTrackNameWithConfig;
         }
 
         private string GetDisplayTrackNameWithConfig(string gameName, string rawTrackNameWithConfig)
