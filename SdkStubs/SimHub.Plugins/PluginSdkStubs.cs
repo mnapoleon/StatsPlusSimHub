@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using GameReaderCommon;
 using FormsControl = System.Windows.Forms.Control;
 using WpfControl = System.Windows.Controls.Control;
@@ -57,19 +59,29 @@ namespace SimHub.Plugins
 
     public interface IWPFSettingsV2
     {
-        WpfControl GetWPFSettingsControl(PluginManager pluginManager);
+        string LeftMenuTitle { get; }
 
-        FormsControl GetSettingsControl(PluginManager pluginManager);
+        ImageSource PictureIcon { get; }
+    }
+
+    public interface IWPFSettings
+    {
+        WpfControl GetWPFSettingsControl(PluginManager pluginManager);
     }
 
     public class PluginManager
     {
-        public virtual string GetCommonStoragePath(string fileName)
+        public virtual string GetCommonStoragePath(params string[] pathParts)
         {
-            return fileName ?? string.Empty;
+            return pathParts == null ? string.Empty : Path.Combine(pathParts);
         }
 
-        public virtual void AddProperty(string propertyName, Type ownerType, object initialValue)
+        public virtual string GetCommonStoragePath(bool create, params string[] pathParts)
+        {
+            return GetCommonStoragePath(pathParts);
+        }
+
+        public virtual void AddProperty<T>(string propertyName, Type ownerType, T initialValue, string unit = null)
         {
         }
 

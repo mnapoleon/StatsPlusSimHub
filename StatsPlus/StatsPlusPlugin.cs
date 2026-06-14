@@ -308,9 +308,7 @@ namespace StatsPlus
         public void Init(PluginManager pluginManager)
         {
             PluginManager = pluginManager;
-            _settingsPath = pluginManager.GetCommonStoragePath(SettingsFileName);
-            _legacyDatabasePath = pluginManager.GetCommonStoragePath(LegacyDataFileName);
-            _databasePath = pluginManager.GetCommonStoragePath(SqliteDataFileName);
+            InitializeStoragePaths(pluginManager);
             _acTrackMapPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ac_track_id_map.json");
             Settings = LoadSettings();
             _assettoCorsaTrackMap = LoadAssettoCorsaTrackMap();
@@ -406,6 +404,7 @@ namespace StatsPlus
         {
             _sqliteRepository?.Dispose();
             _sqliteRepository = null;
+            BackupDatabaseFile();
             SaveSettings();
             SimHub.Logging.Current.Info("StatsPlus - Shutting down");
         }
@@ -424,6 +423,85 @@ namespace StatsPlus
         }
 
         private bool UseSqlite => _sqliteRepository != null;
+
+        internal static string GetStatsPlusStorageRoot(string commonStorageRoot)
+        {
+            if (string.IsNullOrWhiteSpace(commonStorageRoot))
+            {
+                return Path.Combine("PluginsData", "StatsPlus");
+            }
+
+            string trimmedPath = commonStorageRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string pluginsDataRoot = Directory.GetParent(trimmedPath)?.FullName ?? trimmedPath;
+            return Path.Combine(pluginsDataRoot, "StatsPlus");
+        }
+
+        internal static void MigrateFileIfNeeded(string targetPath, params string[] candidatePaths)
+        {
+            if (string.IsNullOrWhiteSpace(targetPath) || File.Exists(targetPath) || candidatePaths == null)
+            {
+                return;
+            }
+
+            string directory = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            foreach (string candidatePath in candidatePaths)
+            {
+                if (string.IsNullOrWhiteSpace(candidatePath) || !File.Exists(candidatePath))
+                {
+                    continue;
+                }
+
+                File.Move(candidatePath, targetPath);
+                return;
+            }
+        }
+
+        internal static string ResolveLegacyDataPath(string statsPlusStorageRoot, string commonStorageRoot)
+        {
+            string statsPlusPath = Path.Combine(statsPlusStorageRoot ?? string.Empty, LegacyDataFileName);
+            string commonStatsPlusPath = Path.Combine(commonStorageRoot ?? string.Empty, "StatsPlus", LegacyDataFileName);
+            string commonRootPath = Path.Combine(commonStorageRoot ?? string.Empty, LegacyDataFileName);
+
+            if (File.Exists(statsPlusPath))
+            {
+                return statsPlusPath;
+            }
+
+            if (File.Exists(commonStatsPlusPath))
+            {
+                return commonStatsPlusPath;
+            }
+
+            if (File.Exists(commonRootPath))
+            {
+                return commonRootPath;
+            }
+
+            return statsPlusPath;
+        }
+
+        internal static void BackupFileIfPresent(string sourcePath, string backupPath)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath) ||
+                string.IsNullOrWhiteSpace(backupPath) ||
+                !File.Exists(sourcePath))
+            {
+                return;
+            }
+
+            string directory = Path.GetDirectoryName(backupPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.Copy(sourcePath, backupPath, overwrite: true);
+        }
 
         private void InitializeDatabase()
         {
@@ -447,6 +525,52 @@ namespace StatsPlus
                 _sqliteRepository = null;
                 _databasePath = _legacyDatabasePath;
                 _database = LoadDatabase();
+            }
+        }
+
+        private void InitializeStoragePaths(PluginManager pluginManager)
+        {
+            string commonSettingsPath = pluginManager.GetCommonStoragePath(SettingsFileName);
+            string commonStorageRoot = Path.GetDirectoryName(commonSettingsPath) ?? string.Empty;
+            string statsPlusStorageRoot = GetStatsPlusStorageRoot(commonStorageRoot);
+            string commonStatsPlusStorageRoot = Path.Combine(commonStorageRoot, "StatsPlus");
+
+            _settingsPath = Path.Combine(statsPlusStorageRoot, SettingsFileName);
+            _databasePath = Path.Combine(statsPlusStorageRoot, SqliteDataFileName);
+
+            TryMigrateStorageFile(
+                _settingsPath,
+                Path.Combine(commonStatsPlusStorageRoot, SettingsFileName),
+                commonSettingsPath);
+            TryMigrateStorageFile(
+                _databasePath,
+                Path.Combine(commonStatsPlusStorageRoot, SqliteDataFileName),
+                pluginManager.GetCommonStoragePath(SqliteDataFileName));
+
+            _legacyDatabasePath = ResolveLegacyDataPath(statsPlusStorageRoot, commonStorageRoot);
+        }
+
+        private void TryMigrateStorageFile(string targetPath, params string[] candidatePaths)
+        {
+            try
+            {
+                MigrateFileIfNeeded(targetPath, candidatePaths);
+            }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn($"StatsPlus - Failed to migrate storage file to {targetPath}: {ex.Message}");
+            }
+        }
+
+        private void BackupDatabaseFile()
+        {
+            try
+            {
+                BackupFileIfPresent(_databasePath, _databasePath + ".bak");
+            }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn($"StatsPlus - Failed to back up database: {ex.Message}");
             }
         }
 

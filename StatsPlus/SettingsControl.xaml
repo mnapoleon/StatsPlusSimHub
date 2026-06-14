@@ -161,7 +161,7 @@
                                 <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,12,8" Text="Current context" FontWeight="Bold" />
                                 <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding CurrentContext}" TextWrapping="Wrap" />
 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,12,8" Text="Data file" FontWeight="Bold" />
+                                <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,12,8" Text="Database file" FontWeight="Bold" />
                                 <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Text="{Binding DatabasePath}" TextWrapping="Wrap" />
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,12,8" Text="Session laps" FontWeight="Bold" />
@@ -187,7 +187,10 @@
                     <styles:SHSection Title="Stored History">
                         <StackPanel Margin="12">
                             <TextBlock Margin="0,0,0,10" TextWrapping="Wrap">
-                                Recorded laps are partitioned by game, car, and track variation in the local lap history database.
+                                Recorded laps are partitioned by game, car, and track variation in the local SQLite history database stored under the plugin's StatsPlus data folder.
+                            </TextBlock>
+                            <TextBlock Margin="0,0,0,10" TextWrapping="Wrap">
+                                On clean shutdown, StatsPlus refreshes a single rolling <Run Text=".bak" /> copy beside the live database file.
                             </TextBlock>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                 <Button Width="150"
