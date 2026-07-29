@@ -86,7 +86,7 @@ public class MyPlugin : IPlugin, IDataPlugin, IWPFSettings
 
 ### Lap Detection in DataUpdate()
 
-Lap completion is detected by watching `data.NewData.CompletedLaps` (an incrementing integer) change:
+Lap completion is typically detected by watching `data.NewData.CompletedLaps` (an incrementing integer) change:
 
 ```csharp
 public void DataUpdate(PluginManager pluginManager, ref GameData data)
@@ -141,6 +141,25 @@ public void DataUpdate(PluginManager pluginManager, ref GameData data)
     _lastLapNumber = currentLapNumber;
 }
 ```
+
+That pattern is a good baseline, but it is not sufficient for every sim. In verified `rFactor2` / `LMU` sessions we observed three important edge cases:
+
+- `CompletedLaps` can advance from `0 -> 1` for an incomplete out lap while `LastLapTime` is still empty.
+- After a lap boundary, `LastLapTime` can briefly remain at the previous lap's value before the real completed-lap time arrives.
+- A repeated lap-time tick can arrive before fresh sector splits, which produces a duplicated lap time with `0` sector values if you finalize immediately.
+
+For `RFactor2`-family games, including `LMU`, prefer a queued finalize flow instead of saving immediately on the `CompletedLaps` change:
+
+- Queue the lap boundary when `CompletedLaps` changes.
+- Ignore the initial `0 -> 1` boundary if no completed `LastLapTime` is available yet.
+- Wait until `LastLapTime` is positive and has clearly advanced from the previously observed completed-lap value.
+- Prefer waiting until fresh sector data has been captured before accepting a repeated lap time.
+
+This avoids the bad record shape we saw in real stored data:
+
+- lap `1` with valid sectors
+- lap `2` with the same lap time a few milliseconds later
+- `sector1 = 0`, `sector2 = 0`, `sector3 = lapTime`
 
 ### Sector Split Detection
 

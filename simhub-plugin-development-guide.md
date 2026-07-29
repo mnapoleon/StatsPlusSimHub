@@ -192,6 +192,8 @@ public void DataUpdate(PluginManager pluginManager, ref GameData data)
 | `FuelLevel`        | double   | Current fuel level               |
 | `FuelPercent`      | double   | Fuel as percentage of capacity   |
 
+> `CompletedLaps` / `LastLapTime` timing is game-dependent. `RFactor2` and `LMU` can report an incomplete `0 -> 1` out-lap boundary, can briefly republish the previous lap time after a lap rollover, and can lag sector splits behind the lap-count change. For those games, queue the boundary and finalize only after the completed lap time is stable.
+
 ### Detecting Changes Between Frames
 
 ```csharp
@@ -245,6 +247,11 @@ pluginManager.GetPropertyValue("DataCorePlugin.GameRawData.Physics.WheelAngularS
 // --- rFactor 2 / Le Mans Ultimate ---
 pluginManager.GetPropertyValue("DataCorePlugin.GameRawData.CurrentPlayer.mLocalVel.x")
 pluginManager.GetPropertyValue("DataCorePlugin.GameRawData.CurrentPlayerTelemetry.mWheels01.mRotation")
+
+// Lap timing note:
+// RFactor2 / LMU rollover timing is not atomic. CompletedLaps can change before
+// LastLapTime and sector splits are stable, so treat lap-finalization as a queued
+// state transition rather than saving immediately on the first lap-count change.
 
 // --- Project CARS 2 / Automobilista 2 (Shared Memory) ---
 pluginManager.GetPropertyValue("DataCorePlugin.GameRawData.mLocalVelocity01")
