@@ -67,7 +67,16 @@
 
   <Target Name="CopyPluginToSimHub" AfterTargets="Build" Condition="Exists('$(SimHubInstallPath)')">
     <ItemGroup>
-      <PluginOutput Include="$(TargetDir)**\*.*" Exclude="$(TargetDir)ref\**\*.*" />
+      <PluginOutput Include="$(TargetDir)**\*.*"
+                    Exclude="$(TargetDir)ref\**\*.*;
+                             $(TargetDir)GameReaderCommon.dll;
+                             $(TargetDir)GameReaderCommon.pdb;
+                             $(TargetDir)SimHub.Plugins.dll;
+                             $(TargetDir)SimHub.Plugins.pdb;
+                             $(TargetDir)SimHub.Logging.dll;
+                             $(TargetDir)Newtonsoft.Json.dll;
+                             $(TargetDir)MahApps.Metro.dll;
+                             $(TargetDir)log4net.dll" />
     </ItemGroup>
     <Message Text="Copying StatsPlus build output to $(SimHubInstallPath)" Importance="High" />
     <Copy SourceFiles="@(PluginOutput)"

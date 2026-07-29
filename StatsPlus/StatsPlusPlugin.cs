@@ -49,6 +49,8 @@ namespace StatsPlus
         private string _dataStatus = "Waiting for telemetry";
         private bool _pendingLapCapture;
         private int _pendingCompletedLapCount = -1;
+        private double _pendingObservedLastLapSeconds = -1.0;
+        private bool _pendingLastLapTimeNeedsRefresh;
         private double _capturedSector1Seconds;
         private double _capturedSector2Seconds;
         private bool _capturedSector1;
@@ -929,8 +931,24 @@ namespace StatsPlus
 
             if (data.NewData.CompletedLaps != data.OldData.CompletedLaps && data.NewData.CompletedLaps >= 1)
             {
+                if (data.OldData.CompletedLaps == 0 &&
+                    data.NewData.CompletedLaps == 1 &&
+                    SessionLapCount == 0 &&
+                    ToSeconds(data.NewData.LastLapTime) <= 0)
+                {
+                    _pendingLapCapture = false;
+                    _pendingCompletedLapCount = -1;
+                    _pendingObservedLastLapSeconds = -1.0;
+                    _pendingLastLapTimeNeedsRefresh = false;
+                    return;
+                }
+
                 _pendingLapCapture = true;
                 _pendingCompletedLapCount = data.NewData.CompletedLaps;
+                _pendingObservedLastLapSeconds = ToSeconds(data.NewData.LastLapTime);
+                double previousLastLapSeconds = ToSeconds(data.OldData.LastLapTime);
+                _pendingLastLapTimeNeedsRefresh = _pendingObservedLastLapSeconds <= 0 ||
+                    AreClose(_pendingObservedLastLapSeconds, previousLastLapSeconds);
             }
         }
 
@@ -943,6 +961,21 @@ namespace StatsPlus
 
             double lapTime = ToSeconds(data.NewData.LastLapTime);
             if (lapTime <= 0)
+            {
+                return;
+            }
+
+            if (_pendingLastLapTimeNeedsRefresh && AreClose(lapTime, _pendingObservedLastLapSeconds))
+            {
+                return;
+            }
+
+            if (_pendingLastLapTimeNeedsRefresh &&
+                _pendingObservedLastLapSeconds <= 0 &&
+                !_capturedSector1 &&
+                !_capturedSector2 &&
+                LastLapSeconds > 0 &&
+                AreClose(lapTime, LastLapSeconds))
             {
                 return;
             }
@@ -982,6 +1015,8 @@ namespace StatsPlus
 
             _pendingLapCapture = false;
             _pendingCompletedLapCount = -1;
+            _pendingObservedLastLapSeconds = -1.0;
+            _pendingLastLapTimeNeedsRefresh = false;
             _capturedSector1Seconds = 0.0;
             _capturedSector2Seconds = 0.0;
             _capturedSector1 = false;
@@ -1196,6 +1231,11 @@ namespace StatsPlus
             return currentBest <= 0 || candidate < currentBest ? candidate : currentBest;
         }
 
+        private static bool AreClose(double left, double right)
+        {
+            return Math.Abs(left - right) < 0.0001;
+        }
+
         private static double ToSeconds(TimeSpan? value)
         {
             return value.HasValue ? value.Value.TotalSeconds : 0.0;
@@ -1290,6 +1330,9 @@ namespace StatsPlus
                     return Settings.RecordAutomobilista2;
                 case "iracing":
                     return Settings.RecordIRacing;
+                case "lmu":
+                case "lemansultimate":
+                    return Settings.RecordLeMansUltimate;
                 case "rfactor2":
                     return Settings.RecordRFactor2;
                 case "raceroomracingexperience":

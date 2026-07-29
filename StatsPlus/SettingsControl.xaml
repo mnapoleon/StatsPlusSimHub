@@ -92,6 +92,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Assetto Corsa" />
@@ -106,11 +107,14 @@
                                 <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="iRacing" />
                                 <CheckBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding Settings.RecordIRacing, Mode=TwoWay}" />
 
-                                <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="rFactor 2" />
-                                <CheckBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding Settings.RecordRFactor2, Mode=TwoWay}" />
+                                <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Le Mans Ultimate" />
+                                <CheckBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding Settings.RecordLeMansUltimate, Mode=TwoWay}" />
 
-                                <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center" Text="RaceRoom / RRRE" />
-                                <CheckBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,0" HorizontalAlignment="Left" IsChecked="{Binding Settings.RecordR3E, Mode=TwoWay}" />
+                                <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="rFactor 2" />
+                                <CheckBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding Settings.RecordRFactor2, Mode=TwoWay}" />
+
+                                <TextBlock Grid.Row="6" Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center" Text="RaceRoom / RRRE" />
+                                <CheckBox Grid.Row="6" Grid.Column="1" Margin="0,0,0,0" HorizontalAlignment="Left" IsChecked="{Binding Settings.RecordR3E, Mode=TwoWay}" />
                             </Grid>
                         </StackPanel>
                     </styles:SHSection>

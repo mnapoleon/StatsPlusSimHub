@@ -12,6 +12,7 @@ namespace StatsPlus
         private bool _recordAssettoCorsaEvo = true;
         private bool _recordAutomobilista2 = true;
         private bool _recordIRacing = true;
+        private bool _recordLeMansUltimate = true;
         private bool _recordRFactor2 = true;
         private bool _recordR3E = true;
 
@@ -123,6 +124,21 @@ namespace StatsPlus
             }
         }
 
+        public bool RecordLeMansUltimate
+        {
+            get => _recordLeMansUltimate;
+            set
+            {
+                if (_recordLeMansUltimate == value)
+                {
+                    return;
+                }
+
+                _recordLeMansUltimate = value;
+                OnPropertyChanged();
+            }
+        }
+
         public bool RecordRFactor2
         {
             get => _recordRFactor2;
@@ -162,6 +178,7 @@ namespace StatsPlus
             RecordAssettoCorsaEvo = true;
             RecordAutomobilista2 = true;
             RecordIRacing = true;
+            RecordLeMansUltimate = true;
             RecordRFactor2 = true;
             RecordR3E = true;
         }
