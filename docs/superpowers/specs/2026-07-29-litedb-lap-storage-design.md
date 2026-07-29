@@ -36,45 +36,21 @@ Startup initializes the LiteDB repository and creates indexes if needed. If the 
 
 ## LiteDB Data Model
 
-Use document collections that preserve the current logical SQLite boundaries:
+Use a document-oriented structure instead of mirroring SQLite's normalized table shape:
 
-- `games`
-- `cars`
-- `tracks`
-- `trackContexts`
+- `trackHistories`
 - `laps`
 
 Each document uses a `long Id`. Natural identities stay normalized for case-insensitive lookup while preserving original display/base values.
 
-### Game Document
+### Track History Document
 
 - `Id`
-- `Name`
-- `NormalizedName`
-
-Unique index:
-
-- `NormalizedName`
-
-### Car Document
-
-- `Id`
-- `GameId`
-- `ModelName`
+- `GameName`
+- `NormalizedGameName`
+- `CarModel`
 - `NormalizedModelName`
 - `DisplayModelName`
-
-Index:
-
-- `GameId`
-- `NormalizedModelName`
-
-The pair `(GameId, NormalizedModelName)` is unique by repository logic.
-
-### Track Document
-
-- `Id`
-- `GameId`
 - `RawTrackName`
 - `TrackNameWithConfig`
 - `NormalizedTrackNameWithConfig`
@@ -82,34 +58,18 @@ The pair `(GameId, NormalizedModelName)` is unique by repository logic.
 - `CreatedUtc`
 - `LastUpdatedUtc`
 
-Index:
+Indexes:
 
-- `GameId`
+- `NormalizedGameName`
+- `NormalizedModelName`
 - `NormalizedTrackNameWithConfig`
 
-The pair `(GameId, NormalizedTrackNameWithConfig)` is unique by repository logic.
-
-### Track Context Document
-
-- `Id`
-- `GameId`
-- `CarId`
-- `TrackId`
-- `CreatedUtc`
-- `LastUpdatedUtc`
-
-Index:
-
-- `GameId`
-- `CarId`
-- `TrackId`
-
-The triple `(GameId, CarId, TrackId)` is unique by repository logic.
+The tuple `(NormalizedGameName, NormalizedModelName, NormalizedTrackNameWithConfig)` is unique by repository logic. LiteDB supports indexes on individual fields; the repository must query by all three normalized fields before inserting to enforce this natural identity.
 
 ### Lap Document
 
 - `Id`
-- `TrackContextId`
+- `TrackHistoryId`
 - `LapNumber`
 - `LapTimeSeconds`
 - `Sector1Seconds`
@@ -120,10 +80,12 @@ The triple `(GameId, CarId, TrackId)` is unique by repository logic.
 
 Indexes:
 
-- `TrackContextId`
+- `TrackHistoryId`
 - `TimestampUtc`
 - `IsValid`
 - `LapTimeSeconds`
+
+Do not embed laps inside `trackHistories`. A track history can grow without bound, and lap validity toggles should update one small lap document instead of rewriting a large parent document.
 
 ## Repository API
 
@@ -187,13 +149,15 @@ StatsPlus.Migration.exe --source "...\StatsPlus.laps.db" --target "...\StatsPlus
 Behavior:
 
 - Reads the SQLite schema currently used by `StatsPlusSqliteRepository`.
-- Writes equivalent LiteDB `games`, `cars`, `tracks`, `trackContexts`, and `laps` documents.
-- Preserves ids when practical, or otherwise preserves relationships and produces valid new ids.
+- Collapses each SQLite `games` + `cars` + `tracks` + `track_contexts` row set into one LiteDB `trackHistories` document.
+- Writes each SQLite `laps` row as one LiteDB `laps` document referencing the migrated `TrackHistoryId`.
+- Preserves SQLite lap ids as LiteDB lap ids when possible so any future debugging can line up source and target rows.
+- Creates new LiteDB `trackHistories` ids and keeps an in-memory map from SQLite `track_contexts.id` to LiteDB `trackHistories.Id` while migrating laps.
 - Preserves lap counts, validity flags, lap times, sector times, timestamps, created timestamps, last-updated timestamps, original names, normalized names, and display-name columns.
 - Refuses to overwrite an existing target LiteDB file unless an explicit overwrite flag is supplied.
 - Leaves the source SQLite file untouched.
 - Writes to a temporary target file first, then moves it into place after a successful migration.
-- Prints migrated counts for each collection.
+- Prints source row counts and target document counts for `trackHistories` and `laps`.
 
 SQLite package references are allowed in the migration project only.
 
@@ -218,9 +182,9 @@ Migration utility:
 Repository tests should be adapted from the existing SQLite repository tests and run against LiteDB:
 
 - Import-free initialization creates an empty store.
-- `AddLap` uses case-insensitive identity and does not duplicate games, cars, tracks, or track contexts.
+- `AddLap` uses case-insensitive identity and does not duplicate track histories.
 - `ToggleLapValidity` updates the targeted lap and recalculates best laps.
-- `DeleteGameData` removes only the selected game's contexts and laps.
+- `DeleteGameData` removes only the selected game's track histories and laps.
 - `ClearAllData` removes all lap-history data.
 - `GetTrackSummaries` returns lap counts, best valid lap, and last recorded timestamps.
 - `GetTrackLaps` returns selected-track laps in descending timestamp order.
@@ -228,7 +192,7 @@ Repository tests should be adapted from the existing SQLite repository tests and
 
 Plugin storage tests should be updated for `StatsPlus.laps.ldb` and should remove assertions about `StatsPlus.laps.json`.
 
-Migration utility tests should create a representative SQLite database, run the utility logic, and verify the LiteDB repository returns equivalent summaries, laps, validity, personal bests, and timestamps.
+Migration utility tests should create a representative SQLite database with multiple games, cars, tracks, contexts, and laps, run the utility logic, and verify the LiteDB repository returns equivalent summaries, laps, validity, personal bests, and timestamps from the collapsed `trackHistories` + `laps` structure.
 
 ## Acceptance Criteria
 
