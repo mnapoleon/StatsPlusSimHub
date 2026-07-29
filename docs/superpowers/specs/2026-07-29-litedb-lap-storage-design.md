@@ -66,6 +66,8 @@ Indexes:
 
 The tuple `(NormalizedGameName, NormalizedModelName, NormalizedTrackNameWithConfig)` is unique by repository logic. LiteDB supports indexes on individual fields; the repository must query by all three normalized fields before inserting to enforce this natural identity.
 
+`CreatedUtc` is set when the track history document is first created and is not changed by later sessions. `LastUpdatedUtc` is a denormalized summary value for the most recent recorded lap on that game/car/track variation; adding a lap updates it to that lap's `TimestampUtc` when the lap timestamp is newer.
+
 ### Lap Document
 
 - `Id`
@@ -86,6 +88,8 @@ Indexes:
 - `LapTimeSeconds`
 
 Do not embed laps inside `trackHistories`. A track history can grow without bound, and lap validity toggles should update one small lap document instead of rewriting a large parent document.
+
+`TimestampUtc` is the source of truth for when each recorded lap occurred.
 
 ## Repository API
 
