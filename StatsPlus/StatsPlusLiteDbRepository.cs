@@ -274,49 +274,4 @@ namespace StatsPlus
         }
 
     }
-
-    public sealed class StatsPlusSqliteRepository : IDisposable
-    {
-        private readonly StatsPlusLiteDbRepository _repository;
-
-        public StatsPlusSqliteRepository(string databasePath)
-        {
-            _repository = new StatsPlusLiteDbRepository(databasePath);
-        }
-
-        public void Initialize() => _repository.Initialize();
-        public bool HasLapData() => _repository.HasLapData();
-        public void AddLap(string gameName, string carModel, string trackName, string trackNameWithConfig, RecordedLap lap) => _repository.AddLap(gameName, carModel, trackName, trackNameWithConfig, lap);
-        public void ToggleLapValidity(long lapId) => _repository.ToggleLapValidity(lapId);
-        public void DeleteGameData(string gameName) => _repository.DeleteGameData(gameName);
-        public void ClearAllData() => _repository.ClearAllData();
-        public double GetBestLapSeconds(string gameName, string carModel, string trackNameWithConfig) => _repository.GetBestLapSeconds(gameName, carModel, trackNameWithConfig);
-        public List<StoredTrackSummary> GetTrackSummaries() => _repository.GetTrackSummaries();
-        public List<RecordedLapView> GetTrackLaps(string gameName, string carModel, string trackNameWithConfig) => _repository.GetTrackLaps(gameName, carModel, trackNameWithConfig);
-        public Dictionary<string, double> GetPersonalBestPropertyValues() => _repository.GetPersonalBestPropertyValues();
-        public string TryGetCarDisplayName(string gameName, string carModel) => _repository.TryGetCarDisplayName(gameName, carModel);
-        public void Dispose() => _repository.Dispose();
-
-        public void ImportLegacyDatabase(LapDatabase database)
-        {
-            if (database == null)
-            {
-                return;
-            }
-
-            foreach (GameBucket game in database.Games.Values)
-            {
-                foreach (CarBucket car in game.Cars.Values)
-                {
-                    foreach (TrackBucket track in car.Tracks.Values)
-                    {
-                        foreach (RecordedLap lap in track.Laps)
-                        {
-                            _repository.AddLap(track.GameName, track.CarModel, track.TrackName, track.TrackNameWithConfig, lap);
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
