@@ -12,6 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StatsPlus\StatsPlus.csproj" />
+    <ProjectReference Include="..\StatsPlus\StatsPlus.csproj" SetConfiguration="Configuration=Test" />
   </ItemGroup>
 </Project>

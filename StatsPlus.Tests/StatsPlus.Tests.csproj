@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StatsPlus\StatsPlus.csproj" />
+    <ProjectReference Include="..\StatsPlus\StatsPlus.csproj" SetConfiguration="Configuration=Test" />
     <ProjectReference Include="..\StatsPlus.Migration\StatsPlus.Migration.csproj" />
     <ProjectReference Include="..\SdkStubs\GameReaderCommon\GameReaderCommon.csproj" />
     <ProjectReference Include="..\SdkStubs\SimHub.Plugins\SimHub.Plugins.csproj" />

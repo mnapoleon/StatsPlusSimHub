@@ -14,6 +14,11 @@
     <StartWorkingDirectory>$(SimHubInstallPath)</StartWorkingDirectory>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Test'">
+    <UseSimHubSdkStubs>true</UseSimHubSdkStubs>
+    <SimHubInstallPath>C:\does-not-exist</SimHubInstallPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
@@ -48,11 +53,11 @@
   <ItemGroup Condition="'$(UseSimHubSdkStubs)' == 'true'">
     <ProjectReference Include="..\SdkStubs\SimHub.Plugins\SimHub.Plugins.csproj" />
     <ProjectReference Include="..\SdkStubs\GameReaderCommon\GameReaderCommon.csproj" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="LiteDB" Version="5.0.21" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
