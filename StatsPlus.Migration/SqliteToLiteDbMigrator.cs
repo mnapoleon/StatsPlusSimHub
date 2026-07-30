@@ -52,28 +52,38 @@ FROM laps;";
                 throw new ArgumentException("A source database path is required.", nameof(sourcePath));
             }
 
-            if (!File.Exists(sourcePath))
-            {
-                throw new FileNotFoundException("The source SQLite database was not found.", sourcePath);
-            }
-
             if (string.IsNullOrWhiteSpace(targetPath))
             {
                 throw new ArgumentException("A target database path is required.", nameof(targetPath));
             }
 
-            if (File.Exists(targetPath) && !overwrite)
+            string canonicalSourcePath = Path.GetFullPath(sourcePath);
+            string canonicalTargetPath = Path.GetFullPath(targetPath);
+            string temporaryPath = canonicalTargetPath + ".tmp";
+
+            if (PathsAreEqual(canonicalSourcePath, canonicalTargetPath) ||
+                PathsAreEqual(canonicalSourcePath, temporaryPath) ||
+                PathsAreEqual(canonicalTargetPath, temporaryPath))
+            {
+                throw new IOException("The source, target, and temporary database paths must be distinct.");
+            }
+
+            if (!File.Exists(canonicalSourcePath))
+            {
+                throw new FileNotFoundException("The source SQLite database was not found.", canonicalSourcePath);
+            }
+
+            if (File.Exists(canonicalTargetPath) && !overwrite)
             {
                 throw new IOException("The target LiteDB database already exists.");
             }
 
-            string targetDirectory = Path.GetDirectoryName(targetPath);
+            string targetDirectory = Path.GetDirectoryName(canonicalTargetPath);
             if (!string.IsNullOrEmpty(targetDirectory))
             {
                 Directory.CreateDirectory(targetDirectory);
             }
 
-            string temporaryPath = targetPath + ".tmp";
             if (File.Exists(temporaryPath))
             {
                 File.Delete(temporaryPath);
@@ -81,8 +91,8 @@ FROM laps;";
 
             try
             {
-                MigrationResult result = WriteTemporaryDatabase(sourcePath, temporaryPath);
-                PromoteTemporaryDatabase(temporaryPath, targetPath, overwrite);
+                MigrationResult result = WriteTemporaryDatabase(canonicalSourcePath, temporaryPath);
+                PromoteTemporaryDatabase(temporaryPath, canonicalTargetPath, overwrite);
                 return result;
             }
             catch
@@ -210,11 +220,16 @@ FROM laps;";
 
         private static BsonMapper CreateMapper()
         {
-            BsonMapper mapper = BsonMapper.Global;
+            var mapper = new BsonMapper();
             mapper.RegisterType<DateTime>(
                 value => new BsonValue(value.ToUniversalTime()),
                 value => value.AsDateTime.ToUniversalTime());
             return mapper;
+        }
+
+        private static bool PathsAreEqual(string leftPath, string rightPath)
+        {
+            return string.Equals(leftPath, rightPath, StringComparison.OrdinalIgnoreCase);
         }
     }
 

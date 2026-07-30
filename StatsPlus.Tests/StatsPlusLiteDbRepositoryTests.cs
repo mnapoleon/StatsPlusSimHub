@@ -74,8 +74,8 @@ namespace StatsPlus.Tests
             {
                 var histories = database.GetCollection<TrackHistoryDocument>("trackHistories").FindAll().ToList();
                 Assert.AreEqual(1, histories.Count);
-                Assert.AreEqual(firstTimestamp, histories[0].CreatedUtc);
-                Assert.AreEqual(newerTimestamp, histories[0].LastUpdatedUtc);
+                Assert.AreEqual(firstTimestamp, histories[0].CreatedUtc.ToUniversalTime());
+                Assert.AreEqual(newerTimestamp, histories[0].LastUpdatedUtc.ToUniversalTime());
             }
         }
 
@@ -94,7 +94,7 @@ namespace StatsPlus.Tests
             using (var database = new LiteDatabase(_databasePath))
             {
                 var history = database.GetCollection<TrackHistoryDocument>("trackHistories").FindAll().Single();
-                Assert.AreEqual(newerTimestamp, history.LastUpdatedUtc);
+                Assert.AreEqual(newerTimestamp, history.LastUpdatedUtc.ToUniversalTime());
             }
         }
 

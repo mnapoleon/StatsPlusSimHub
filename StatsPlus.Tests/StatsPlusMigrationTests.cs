@@ -91,6 +91,38 @@ namespace StatsPlus.Tests
             }
         }
 
+        [TestMethod]
+        public void Migrate_WhenSourceAndTargetAreTheSame_ThrowsAndLeavesSourceUntouched()
+        {
+            byte[] originalSourceBytes = File.ReadAllBytes(_sourcePath);
+
+            Assert.ThrowsException<IOException>(() => new SqliteToLiteDbMigrator().Migrate(_sourcePath, _sourcePath, overwrite: true));
+
+            CollectionAssert.AreEqual(originalSourceBytes, File.ReadAllBytes(_sourcePath));
+        }
+
+        [TestMethod]
+        public void Migrate_WhenSourceIsTemporaryTarget_ThrowsAndLeavesSourceUntouched()
+        {
+            string temporarySourcePath = _targetPath + ".tmp";
+            File.Move(_sourcePath, temporarySourcePath);
+            byte[] originalSourceBytes = File.ReadAllBytes(temporarySourcePath);
+
+            Assert.ThrowsException<IOException>(() => new SqliteToLiteDbMigrator().Migrate(temporarySourcePath, _targetPath, overwrite: true));
+
+            CollectionAssert.AreEqual(originalSourceBytes, File.ReadAllBytes(temporarySourcePath));
+        }
+
+        [TestMethod]
+        public void Migrate_LeavesSourceDatabaseUntouched()
+        {
+            byte[] originalSourceBytes = File.ReadAllBytes(_sourcePath);
+
+            new SqliteToLiteDbMigrator().Migrate(_sourcePath, _targetPath, overwrite: false);
+
+            CollectionAssert.AreEqual(originalSourceBytes, File.ReadAllBytes(_sourcePath));
+        }
+
         private StatsPlusLiteDbRepository OpenTargetRepository()
         {
             var repository = new StatsPlusLiteDbRepository(_targetPath);

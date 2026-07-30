@@ -11,9 +11,8 @@ namespace StatsPlus
         private const string TrackHistoriesCollectionName = "trackHistories";
         private const string LapsCollectionName = "laps";
 
-        private static readonly BsonMapper Mapper = CreateMapper();
-
         private readonly string _databasePath;
+        private readonly BsonMapper _mapper;
         private LiteDatabase _database;
 
         private ILiteCollection<TrackHistoryDocument> TrackHistories => _database.GetCollection<TrackHistoryDocument>(TrackHistoriesCollectionName);
@@ -22,6 +21,7 @@ namespace StatsPlus
         public StatsPlusLiteDbRepository(string databasePath)
         {
             _databasePath = databasePath ?? throw new ArgumentNullException(nameof(databasePath));
+            _mapper = CreateMapper();
         }
 
         public void Initialize()
@@ -32,7 +32,7 @@ namespace StatsPlus
                 Directory.CreateDirectory(directory);
             }
 
-            _database = new LiteDatabase(_databasePath, Mapper);
+            _database = new LiteDatabase(_databasePath, _mapper);
             TrackHistories.EnsureIndex(history => history.NormalizedGameName);
             TrackHistories.EnsureIndex(history => history.NormalizedModelName);
             TrackHistories.EnsureIndex(history => history.NormalizedTrackNameWithConfig);
@@ -54,17 +54,20 @@ namespace StatsPlus
                 throw new ArgumentNullException(nameof(lap));
             }
 
-            TrackHistoryDocument history = GetOrCreateTrackHistory(gameName, carModel, trackName, trackNameWithConfig, lap.TimestampUtc);
-            Laps.Insert(new LapDocument
+            ExecuteInTransaction(() =>
             {
-                TrackHistoryId = history.Id,
-                LapNumber = lap.LapNumber,
-                LapTimeSeconds = lap.LapTimeSeconds,
-                Sector1Seconds = lap.Sector1Seconds,
-                Sector2Seconds = lap.Sector2Seconds,
-                Sector3Seconds = lap.Sector3Seconds,
-                IsValid = lap.IsValid,
-                TimestampUtc = lap.TimestampUtc
+                TrackHistoryDocument history = GetOrCreateTrackHistory(gameName, carModel, trackName, trackNameWithConfig, lap.TimestampUtc);
+                Laps.Insert(new LapDocument
+                {
+                    TrackHistoryId = history.Id,
+                    LapNumber = lap.LapNumber,
+                    LapTimeSeconds = lap.LapTimeSeconds,
+                    Sector1Seconds = lap.Sector1Seconds,
+                    Sector2Seconds = lap.Sector2Seconds,
+                    Sector3Seconds = lap.Sector3Seconds,
+                    IsValid = lap.IsValid,
+                    TimestampUtc = lap.TimestampUtc
+                });
             });
         }
 
@@ -82,20 +85,26 @@ namespace StatsPlus
 
         public void DeleteGameData(string gameName)
         {
-            List<TrackHistoryDocument> histories = TrackHistories.Find(history =>
-                history.NormalizedGameName == NormalizeGameName(gameName)).ToList();
-
-            foreach (TrackHistoryDocument history in histories)
+            ExecuteInTransaction(() =>
             {
-                Laps.DeleteMany(lap => lap.TrackHistoryId == history.Id);
-                TrackHistories.Delete(history.Id);
-            }
+                List<TrackHistoryDocument> histories = TrackHistories.Find(history =>
+                    history.NormalizedGameName == NormalizeGameName(gameName)).ToList();
+
+                foreach (TrackHistoryDocument history in histories)
+                {
+                    Laps.DeleteMany(lap => lap.TrackHistoryId == history.Id);
+                    TrackHistories.Delete(history.Id);
+                }
+            });
         }
 
         public void ClearAllData()
         {
-            Laps.DeleteAll();
-            TrackHistories.DeleteAll();
+            ExecuteInTransaction(() =>
+            {
+                Laps.DeleteAll();
+                TrackHistories.DeleteAll();
+            });
         }
 
         public double GetBestLapSeconds(string gameName, string carModel, string trackNameWithConfig)
@@ -266,11 +275,30 @@ namespace StatsPlus
 
         private static BsonMapper CreateMapper()
         {
-            BsonMapper mapper = BsonMapper.Global;
+            var mapper = new BsonMapper();
             mapper.RegisterType<DateTime>(
                 value => new BsonValue(value.ToUniversalTime()),
                 value => value.AsDateTime.ToUniversalTime());
             return mapper;
+        }
+
+        private void ExecuteInTransaction(Action operation)
+        {
+            if (!_database.BeginTrans())
+            {
+                throw new InvalidOperationException("Unable to begin LiteDB transaction.");
+            }
+
+            try
+            {
+                operation();
+                _database.Commit();
+            }
+            catch
+            {
+                _database.Rollback();
+                throw;
+            }
         }
 
     }
