@@ -99,6 +99,8 @@ FROM laps;";
         private static MigrationResult WriteTemporaryDatabase(string sourcePath, string temporaryPath)
         {
             var contextIds = new Dictionary<long, long>();
+            var trackHistoriesById = new Dictionary<long, TrackHistoryDocument>();
+            var latestLapTimestamps = new Dictionary<long, DateTime>();
             int trackHistoryCount = 0;
             int lapCount = 0;
 
@@ -132,6 +134,7 @@ FROM laps;";
 
                         trackHistories.Insert(history);
                         contextIds.Add(sqliteTrackContextId, history.Id);
+                        trackHistoriesById.Add(history.Id, history);
                         trackHistoryCount++;
                     }
                 }
@@ -147,7 +150,7 @@ FROM laps;";
                             throw new InvalidDataException($"Lap {reader.GetInt64(0)} references an unknown track context {sqliteTrackContextId}.");
                         }
 
-                        laps.Insert(new LapDocument
+                        var lap = new LapDocument
                         {
                             Id = reader.GetInt64(0),
                             TrackHistoryId = trackHistoryId,
@@ -158,9 +161,26 @@ FROM laps;";
                             Sector3Seconds = reader.GetDouble(6),
                             IsValid = reader.GetInt32(7) == 1,
                             TimestampUtc = ReadUtcDateTime(reader, 8)
-                        });
+                        };
+                        laps.Insert(lap);
+
+                        if (!latestLapTimestamps.TryGetValue(trackHistoryId, out DateTime latestLapTimestamp) || lap.TimestampUtc > latestLapTimestamp)
+                        {
+                            latestLapTimestamps[trackHistoryId] = lap.TimestampUtc;
+                        }
+
                         lapCount++;
                     }
+                }
+
+                foreach (TrackHistoryDocument history in trackHistoriesById.Values)
+                {
+                    if (latestLapTimestamps.TryGetValue(history.Id, out DateTime latestLapTimestamp))
+                    {
+                        history.LastUpdatedUtc = latestLapTimestamp;
+                    }
+
+                    trackHistories.Update(history);
                 }
             }
 

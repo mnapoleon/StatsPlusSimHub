@@ -77,6 +77,20 @@ namespace StatsPlus.Tests
             Assert.ThrowsException<IOException>(() => new SqliteToLiteDbMigrator().Migrate(_sourcePath, _targetPath, overwrite: false));
         }
 
+        [TestMethod]
+        public void Migrate_UsesNewestLapTimestampForLastUpdatedUtc()
+        {
+            var expectedLatestLapTimestamp = new DateTime(2026, 7, 1, 12, 30, 0, DateTimeKind.Utc);
+
+            new SqliteToLiteDbMigrator().Migrate(_sourcePath, _targetPath, overwrite: false);
+
+            using (var repository = OpenTargetRepository())
+            {
+                var spaSummary = repository.GetTrackSummaries().Single(summary => summary.TrackNameWithConfig == "spa-gp");
+                Assert.AreEqual(expectedLatestLapTimestamp, spaSummary.LastRecordedUtc);
+            }
+        }
+
         private StatsPlusLiteDbRepository OpenTargetRepository()
         {
             var repository = new StatsPlusLiteDbRepository(_targetPath);
@@ -99,7 +113,7 @@ CREATE TABLE laps (id INTEGER PRIMARY KEY, track_context_id INTEGER NOT NULL, la
                 Execute(connection, "INSERT INTO games VALUES (1, 'AssettoCorsa', 'assettocorsa'); INSERT INTO games VALUES (2, 'Automobilista2', 'automobilista2');");
                 Execute(connection, "INSERT INTO cars VALUES (1, 1, 'BMW M3 GT2', 'BMW M3 GT2', 'BMW M3 GT2 Race'); INSERT INTO cars VALUES (2, 2, 'BMW M4 GT4', 'BMW M4 GT4', 'BMW M4 GT4 Race');");
                 Execute(connection, "INSERT INTO tracks VALUES (1, 1, 'spa', 'spa-gp', 'SPA-GP', 'Spa GP', '2026-07-01T12:00:00.0000000Z', '2026-07-01T12:30:00.0000000Z'); INSERT INTO tracks VALUES (2, 2, 'monza', 'monza-gp', 'MONZA-GP', 'Monza GP', '2026-07-02T13:00:00.0000000Z', '2026-07-02T13:45:00.0000000Z');");
-                Execute(connection, "INSERT INTO track_contexts VALUES (1, 1, 1, 1, '2026-07-01T12:00:00.0000000Z', '2026-07-01T12:30:00.0000000Z'); INSERT INTO track_contexts VALUES (2, 2, 2, 2, '2026-07-02T13:00:00.0000000Z', '2026-07-02T13:45:00.0000000Z');");
+                Execute(connection, "INSERT INTO track_contexts VALUES (1, 1, 1, 1, '2026-07-01T12:00:00.0000000Z', '2026-07-01T12:05:00.0000000Z'); INSERT INTO track_contexts VALUES (2, 2, 2, 2, '2026-07-02T13:00:00.0000000Z', '2026-07-02T13:45:00.0000000Z');");
                 Execute(connection, "INSERT INTO laps VALUES (11, 1, 1, 100.25, 33.0, 33.5, 33.75, 1, '2026-07-01T12:15:00.0000000Z'); INSERT INTO laps VALUES (12, 1, 2, 99.5, 32.5, 33.0, 34.0, 0, '2026-07-01T12:30:00.0000000Z'); INSERT INTO laps VALUES (21, 2, 1, 89.5, 29.5, 30.0, 30.0, 1, '2026-07-02T13:45:00.0000000Z');");
             }
         }
