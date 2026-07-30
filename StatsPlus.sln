@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimHub.Plugins", "SdkStubs\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameReaderCommon", "SdkStubs\GameReaderCommon\GameReaderCommon.csproj", "{548AEFA1-C744-433D-BF8F-F95AC4F5C8A5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StatsPlus.Migration", "StatsPlus.Migration\StatsPlus.Migration.csproj", "{B131279A-713A-4B14-8C64-B4D6F4F20ABC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{548AEFA1-C744-433D-BF8F-F95AC4F5C8A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{548AEFA1-C744-433D-BF8F-F95AC4F5C8A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{548AEFA1-C744-433D-BF8F-F95AC4F5C8A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B131279A-713A-4B14-8C64-B4D6F4F20ABC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B131279A-713A-4B14-8C64-B4D6F4F20ABC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B131279A-713A-4B14-8C64-B4D6F4F20ABC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B131279A-713A-4B14-8C64-B4D6F4F20ABC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
