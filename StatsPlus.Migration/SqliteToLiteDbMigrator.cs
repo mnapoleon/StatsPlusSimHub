@@ -118,8 +118,8 @@ FROM laps;";
             using (var target = new LiteDatabase(temporaryPath, CreateMapper()))
             {
                 source.Open();
-                ILiteCollection<TrackHistoryDocument> trackHistories = target.GetCollection<TrackHistoryDocument>(TrackHistoriesCollectionName);
-                ILiteCollection<LapDocument> laps = target.GetCollection<LapDocument>(LapsCollectionName);
+                LiteCollection<TrackHistoryDocument> trackHistories = target.GetCollection<TrackHistoryDocument>(TrackHistoriesCollectionName);
+                LiteCollection<LapDocument> laps = target.GetCollection<LapDocument>(LapsCollectionName);
 
                 using (var command = new SQLiteCommand(TrackContextsQuery, source))
                 using (SQLiteDataReader reader = command.ExecuteReader())
@@ -222,8 +222,10 @@ FROM laps;";
         {
             var mapper = new BsonMapper();
             mapper.RegisterType<DateTime>(
-                value => new BsonValue(value.ToUniversalTime()),
-                value => value.AsDateTime.ToUniversalTime());
+                value => new BsonValue(value.ToUniversalTime().Ticks),
+                value => value.IsDateTime
+                    ? value.AsDateTime.ToUniversalTime()
+                    : new DateTime(value.AsInt64, DateTimeKind.Utc));
             return mapper;
         }
 

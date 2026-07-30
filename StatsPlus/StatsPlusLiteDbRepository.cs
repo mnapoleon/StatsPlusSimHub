@@ -15,8 +15,8 @@ namespace StatsPlus
         private readonly BsonMapper _mapper;
         private LiteDatabase _database;
 
-        private ILiteCollection<TrackHistoryDocument> TrackHistories => _database.GetCollection<TrackHistoryDocument>(TrackHistoriesCollectionName);
-        private ILiteCollection<LapDocument> Laps => _database.GetCollection<LapDocument>(LapsCollectionName);
+        private LiteCollection<TrackHistoryDocument> TrackHistories => _database.GetCollection<TrackHistoryDocument>(TrackHistoriesCollectionName);
+        private LiteCollection<LapDocument> Laps => _database.GetCollection<LapDocument>(LapsCollectionName);
 
         public StatsPlusLiteDbRepository(string databasePath)
         {
@@ -33,13 +33,7 @@ namespace StatsPlus
             }
 
             _database = new LiteDatabase(_databasePath, _mapper);
-            TrackHistories.EnsureIndex(history => history.NormalizedGameName);
-            TrackHistories.EnsureIndex(history => history.NormalizedModelName);
-            TrackHistories.EnsureIndex(history => history.NormalizedTrackNameWithConfig);
-            Laps.EnsureIndex(lap => lap.TrackHistoryId);
-            Laps.EnsureIndex(lap => lap.TimestampUtc);
-            Laps.EnsureIndex(lap => lap.IsValid);
-            Laps.EnsureIndex(lap => lap.LapTimeSeconds);
+            EnsureIndexes();
         }
 
         public bool HasLapData()
@@ -54,7 +48,7 @@ namespace StatsPlus
                 throw new ArgumentNullException(nameof(lap));
             }
 
-            ExecuteInTransaction(() =>
+            ExecuteStoreMutation(() =>
             {
                 TrackHistoryDocument history = GetOrCreateTrackHistory(gameName, carModel, trackName, trackNameWithConfig, lap.TimestampUtc);
                 Laps.Insert(new LapDocument
@@ -85,14 +79,14 @@ namespace StatsPlus
 
         public void DeleteGameData(string gameName)
         {
-            ExecuteInTransaction(() =>
+            ExecuteStoreMutation(() =>
             {
                 List<TrackHistoryDocument> histories = TrackHistories.Find(history =>
                     history.NormalizedGameName == NormalizeGameName(gameName)).ToList();
 
                 foreach (TrackHistoryDocument history in histories)
                 {
-                    Laps.DeleteMany(lap => lap.TrackHistoryId == history.Id);
+                    Laps.Delete(lap => lap.TrackHistoryId == history.Id);
                     TrackHistories.Delete(history.Id);
                 }
             });
@@ -100,10 +94,17 @@ namespace StatsPlus
 
         public void ClearAllData()
         {
-            ExecuteInTransaction(() =>
+            ExecuteStoreMutation(() =>
             {
-                Laps.DeleteAll();
-                TrackHistories.DeleteAll();
+                foreach (LapDocument lap in Laps.FindAll().ToList())
+                {
+                    Laps.Delete(lap.Id);
+                }
+
+                foreach (TrackHistoryDocument history in TrackHistories.FindAll().ToList())
+                {
+                    TrackHistories.Delete(history.Id);
+                }
             });
         }
 
@@ -277,29 +278,27 @@ namespace StatsPlus
         {
             var mapper = new BsonMapper();
             mapper.RegisterType<DateTime>(
-                value => new BsonValue(value.ToUniversalTime()),
-                value => value.AsDateTime.ToUniversalTime());
+                value => new BsonValue(value.ToUniversalTime().Ticks),
+                value => value.IsDateTime
+                    ? value.AsDateTime.ToUniversalTime()
+                    : new DateTime(value.AsInt64, DateTimeKind.Utc));
             return mapper;
         }
 
-        private void ExecuteInTransaction(Action operation)
+        private void EnsureIndexes()
         {
-            if (!_database.BeginTrans())
-            {
-                throw new InvalidOperationException("Unable to begin LiteDB transaction.");
-            }
-
-            try
-            {
-                operation();
-                _database.Commit();
-            }
-            catch
-            {
-                _database.Rollback();
-                throw;
-            }
+            TrackHistories.EnsureIndex(history => history.NormalizedGameName);
+            TrackHistories.EnsureIndex(history => history.NormalizedModelName);
+            TrackHistories.EnsureIndex(history => history.NormalizedTrackNameWithConfig);
+            Laps.EnsureIndex(lap => lap.TrackHistoryId);
+            Laps.EnsureIndex(lap => lap.TimestampUtcTicks);
+            Laps.EnsureIndex(lap => lap.IsValid);
+            Laps.EnsureIndex(lap => lap.LapTimeSeconds);
         }
 
+        private void ExecuteStoreMutation(Action operation)
+        {
+            operation();
+        }
     }
 }

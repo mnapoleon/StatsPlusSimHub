@@ -1,4 +1,5 @@
 using System;
+using LiteDB;
 
 namespace StatsPlus
 {
@@ -14,8 +15,33 @@ namespace StatsPlus
         public string TrackNameWithConfig { get; set; } = string.Empty;
         public string NormalizedTrackNameWithConfig { get; set; } = string.Empty;
         public string DisplayTrackNameWithConfig { get; set; } = string.Empty;
-        public DateTime CreatedUtc { get; set; }
-        public DateTime LastUpdatedUtc { get; set; }
+
+        [BsonField("CreatedUtc")]
+        public long CreatedUtcTicks { get; set; }
+
+        [BsonField("LastUpdatedUtc")]
+        public long LastUpdatedUtcTicks { get; set; }
+
+        [BsonIgnore]
+        public DateTime CreatedUtc
+        {
+            get => new DateTime(CreatedUtcTicks, DateTimeKind.Utc);
+            set => CreatedUtcTicks = ToUtcTicks(value);
+        }
+
+        [BsonIgnore]
+        public DateTime LastUpdatedUtc
+        {
+            get => new DateTime(LastUpdatedUtcTicks, DateTimeKind.Utc);
+            set => LastUpdatedUtcTicks = ToUtcTicks(value);
+        }
+
+        private static long ToUtcTicks(DateTime value)
+        {
+            return value.Kind == DateTimeKind.Utc
+                ? value.Ticks
+                : value.ToUniversalTime().Ticks;
+        }
     }
 
     public sealed class LapDocument
@@ -28,6 +54,22 @@ namespace StatsPlus
         public double Sector2Seconds { get; set; }
         public double Sector3Seconds { get; set; }
         public bool IsValid { get; set; }
-        public DateTime TimestampUtc { get; set; }
+
+        [BsonField("TimestampUtc")]
+        public long TimestampUtcTicks { get; set; }
+
+        [BsonIgnore]
+        public DateTime TimestampUtc
+        {
+            get => new DateTime(TimestampUtcTicks, DateTimeKind.Utc);
+            set => TimestampUtcTicks = ToUtcTicks(value);
+        }
+
+        private static long ToUtcTicks(DateTime value)
+        {
+            return value.Kind == DateTimeKind.Utc
+                ? value.Ticks
+                : value.ToUniversalTime().Ticks;
+        }
     }
 }
