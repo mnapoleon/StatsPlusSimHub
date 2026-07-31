@@ -10,11 +10,13 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.6.2" />
     <PackageReference Include="MSTest.TestFramework" Version="3.6.2" />
+    <PackageReference Include="LiteDB" Version="4.1.4" />
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StatsPlus\StatsPlus.csproj" />
+    <ProjectReference Include="..\StatsPlus\StatsPlus.csproj" SetConfiguration="Configuration=Test" />
+    <ProjectReference Include="..\StatsPlus.Migration\StatsPlus.Migration.csproj" />
     <ProjectReference Include="..\SdkStubs\GameReaderCommon\GameReaderCommon.csproj" />
     <ProjectReference Include="..\SdkStubs\SimHub.Plugins\SimHub.Plugins.csproj" />
   </ItemGroup>

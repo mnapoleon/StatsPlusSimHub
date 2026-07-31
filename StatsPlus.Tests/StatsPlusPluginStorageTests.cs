@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using SimHub.Plugins;
 
 namespace StatsPlus.Tests
 {
@@ -36,66 +39,39 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
-        public void MigrateFileIfNeeded_MovesLegacyCommonRootFileWhenTargetMissing()
+        public void MigrateFileIfNeeded_MovesCommonRootFileWhenTargetMissing()
         {
-            string targetPath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.laps.db");
-            string legacyPath = Path.Combine(_tempDirectory, "PluginsData", "Common", "StatsPlus.laps.db");
-            Directory.CreateDirectory(Path.GetDirectoryName(legacyPath));
-            File.WriteAllText(legacyPath, "legacy-db");
+            string targetPath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.laps.ldb");
+            string sourcePath = Path.Combine(_tempDirectory, "PluginsData", "Common", "StatsPlus.laps.ldb");
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath));
+            File.WriteAllText(sourcePath, "legacy-db");
 
-            StatsPlusPlugin.MigrateFileIfNeeded(targetPath, legacyPath);
+            StatsPlusPlugin.MigrateFileIfNeeded(targetPath, sourcePath);
 
-            Assert.IsFalse(File.Exists(legacyPath));
+            Assert.IsFalse(File.Exists(sourcePath));
             Assert.AreEqual("legacy-db", File.ReadAllText(targetPath));
         }
 
         [TestMethod]
-        public void MigrateFileIfNeeded_LeavesLegacyFileWhenTargetAlreadyExists()
+        public void MigrateFileIfNeeded_LeavesSourceFileWhenTargetAlreadyExists()
         {
-            string targetPath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.laps.db");
-            string legacyPath = Path.Combine(_tempDirectory, "PluginsData", "Common", "StatsPlus.laps.db");
+            string targetPath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.laps.ldb");
+            string sourcePath = Path.Combine(_tempDirectory, "PluginsData", "Common", "StatsPlus.laps.ldb");
             Directory.CreateDirectory(Path.GetDirectoryName(targetPath));
-            Directory.CreateDirectory(Path.GetDirectoryName(legacyPath));
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath));
             File.WriteAllText(targetPath, "new-db");
-            File.WriteAllText(legacyPath, "legacy-db");
+            File.WriteAllText(sourcePath, "legacy-db");
 
-            StatsPlusPlugin.MigrateFileIfNeeded(targetPath, legacyPath);
+            StatsPlusPlugin.MigrateFileIfNeeded(targetPath, sourcePath);
 
             Assert.AreEqual("new-db", File.ReadAllText(targetPath));
-            Assert.AreEqual("legacy-db", File.ReadAllText(legacyPath));
-        }
-
-        [TestMethod]
-        public void ResolveLegacyDataPath_PrefersStatsPlusFolderThenCommonSubfolderThenCommonRoot()
-        {
-            string statsPlusRoot = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus");
-            string commonRoot = Path.Combine(_tempDirectory, "PluginsData", "Common");
-            string statsPlusPath = Path.Combine(statsPlusRoot, "StatsPlus.laps.json");
-            string commonSubfolderPath = Path.Combine(commonRoot, "StatsPlus", "StatsPlus.laps.json");
-            string commonRootPath = Path.Combine(commonRoot, "StatsPlus.laps.json");
-            Directory.CreateDirectory(Path.GetDirectoryName(commonSubfolderPath));
-            File.WriteAllText(commonRootPath, "root");
-
-            Assert.AreEqual(
-                commonRootPath,
-                StatsPlusPlugin.ResolveLegacyDataPath(statsPlusRoot, commonRoot));
-
-            File.WriteAllText(commonSubfolderPath, "subfolder");
-            Assert.AreEqual(
-                commonSubfolderPath,
-                StatsPlusPlugin.ResolveLegacyDataPath(statsPlusRoot, commonRoot));
-
-            Directory.CreateDirectory(statsPlusRoot);
-            File.WriteAllText(statsPlusPath, "statsplus");
-            Assert.AreEqual(
-                statsPlusPath,
-                StatsPlusPlugin.ResolveLegacyDataPath(statsPlusRoot, commonRoot));
+            Assert.AreEqual("legacy-db", File.ReadAllText(sourcePath));
         }
 
         [TestMethod]
         public void BackupFileIfPresent_CreatesAndOverwritesRollingBackup()
         {
-            string databasePath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.laps.db");
+            string databasePath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.laps.ldb");
             string backupPath = databasePath + ".bak";
             Directory.CreateDirectory(Path.GetDirectoryName(databasePath));
             File.WriteAllText(databasePath, "fresh-db");
@@ -104,6 +80,49 @@ namespace StatsPlus.Tests
             StatsPlusPlugin.BackupFileIfPresent(databasePath, backupPath);
 
             Assert.AreEqual("fresh-db", File.ReadAllText(backupPath));
+        }
+
+        [TestMethod]
+        public void Init_PublishesLiteDbDataFilePath()
+        {
+            var plugin = new StatsPlusPlugin();
+            var pluginManager = new TestPluginManager(_tempDirectory);
+
+            try
+            {
+                plugin.Init(pluginManager);
+
+                Assert.AreEqual(
+                    Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.laps.ldb"),
+                    pluginManager.Properties["StatsPlus.DataFilePath"]);
+            }
+            finally
+            {
+                plugin.End(pluginManager);
+            }
+        }
+
+        private sealed class TestPluginManager : PluginManager
+        {
+            private readonly string _commonStorageRoot;
+
+            public TestPluginManager(string tempDirectory)
+            {
+                _commonStorageRoot = Path.Combine(tempDirectory, "PluginsData", "Common");
+            }
+
+            public Dictionary<string, object> Properties { get; } = new Dictionary<string, object>();
+
+            public override string GetCommonStoragePath(params string[] pathParts)
+            {
+                Directory.CreateDirectory(_commonStorageRoot);
+                return Path.Combine(new[] { _commonStorageRoot }.Concat(pathParts ?? Array.Empty<string>()).ToArray());
+            }
+
+            public override void AddProperty<T>(string propertyName, Type ownerType, T initialValue, string unit = null)
+            {
+                Properties[propertyName] = initialValue;
+            }
         }
     }
 }
