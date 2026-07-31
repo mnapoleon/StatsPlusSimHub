@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
     <IsPackable>false</IsPackable>
     <LangVersion>latest</LangVersion>
     <UseSimHubSdkStubs>true</UseSimHubSdkStubs>

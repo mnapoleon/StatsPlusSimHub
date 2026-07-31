@@ -44,6 +44,7 @@ namespace StatsPlus
         private string _currentTrackName = "Unknown track";
         private string _currentTrackNameWithConfig = "Unknown track variation";
         private string _dataStatus = "Waiting for telemetry";
+        private bool _isTelemetryActive;
         private bool _pendingLapCapture;
         private int _pendingCompletedLapCount = -1;
         private double _pendingObservedLastLapSeconds = -1.0;
@@ -188,6 +189,27 @@ namespace StatsPlus
 
                 _dataStatus = value;
                 OnPropertyChanged();
+            }
+        }
+
+        public string LiveStatusLabel => IsTelemetryActive ? "Recording" : "Standby";
+
+        public Brush StatusSectionForeground => IsTelemetryActive ? Brushes.LimeGreen : Brushes.Red;
+
+        public bool IsTelemetryActive
+        {
+            get => _isTelemetryActive;
+            private set
+            {
+                if (_isTelemetryActive == value)
+                {
+                    return;
+                }
+
+                _isTelemetryActive = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(LiveStatusLabel));
+                OnPropertyChanged(nameof(StatusSectionForeground));
             }
         }
 
@@ -375,6 +397,7 @@ namespace StatsPlus
                 if (!Settings.EnablePlugin || !data.GameRunning || data.NewData == null)
                 {
                     DataStatus = !Settings.EnablePlugin ? "Plugin disabled" : "Waiting for telemetry";
+                    IsTelemetryActive = false;
                     ClearLiveTelemetryProperties(pluginManager);
                     _hasLoggedDataError = false;
                     return;
@@ -384,6 +407,16 @@ namespace StatsPlus
                 if (!IsGameRecordingEnabled(gameName))
                 {
                     DataStatus = $"Recording disabled for {gameName}";
+                    IsTelemetryActive = false;
+                    ClearLiveTelemetryProperties(pluginManager);
+                    _hasLoggedDataError = false;
+                    return;
+                }
+
+                if (!HasLapRepository)
+                {
+                    DataStatus = "Lap storage unavailable";
+                    IsTelemetryActive = false;
                     ClearLiveTelemetryProperties(pluginManager);
                     _hasLoggedDataError = false;
                     return;
@@ -412,11 +445,13 @@ namespace StatsPlus
                 QueueLapCaptureIfNeeded(data);
                 PublishLapProperties(pluginManager);
 
+                IsTelemetryActive = true;
                 DataStatus = "Recording telemetry";
                 _hasLoggedDataError = false;
             }
             catch (Exception ex)
             {
+                IsTelemetryActive = false;
                 if (_hasLoggedDataError)
                 {
                     return;
@@ -518,6 +553,8 @@ namespace StatsPlus
                 SimHub.Logging.Current.Error($"StatsPlus - Failed to initialize LiteDB database: {ex}");
                 _liteDbRepository?.Dispose();
                 _liteDbRepository = null;
+                DataStatus = "Lap storage unavailable";
+                IsTelemetryActive = false;
             }
         }
 
