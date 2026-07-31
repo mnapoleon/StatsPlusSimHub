@@ -74,6 +74,8 @@ namespace StatsPlus
 
     public class GameHistoryTab
     {
+        public string Header => GameName;
+
         public string GameName { get; set; } = string.Empty;
 
         public List<StoredTrackSummary> Tracks { get; set; } = new List<StoredTrackSummary>();
@@ -82,5 +84,10 @@ namespace StatsPlus
         {
             return GameName;
         }
+    }
+
+    public class StatsPlusSettingsTab
+    {
+        public string Header => "Settings";
     }
 }
