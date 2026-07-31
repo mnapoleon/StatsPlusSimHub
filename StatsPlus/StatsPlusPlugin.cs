@@ -615,28 +615,22 @@ namespace StatsPlus
 
             void Apply()
             {
+                object previousSelectedTopLevelTab = SelectedTopLevelTab;
                 string selectedGame = SelectedTrackSummary?.GameName;
                 string selectedCar = SelectedTrackSummary?.CarModel;
                 string selectedTrackConfig = SelectedTrackSummary?.TrackNameWithConfig;
 
                 GameHistoryTabs.Clear();
-                foreach (GameHistoryTab tab in tabs)
-                {
-                    GameHistoryTabs.Add(tab);
-                }
-
                 TopLevelTabs.Clear();
                 foreach (GameHistoryTab tab in tabs)
                 {
+                    GameHistoryTabs.Add(tab);
                     TopLevelTabs.Add(tab);
                 }
 
                 TopLevelTabs.Add(_settingsTab);
 
-                if (SelectedTopLevelTab == null || !TopLevelTabs.Contains(SelectedTopLevelTab))
-                {
-                    SelectedTopLevelTab = TopLevelTabs.OfType<GameHistoryTab>().FirstOrDefault() ?? (object)_settingsTab;
-                }
+                SelectedTopLevelTab = ResolveSelectedTopLevelTab(previousSelectedTopLevelTab, tabs, _settingsTab);
 
                 SelectedTrackSummary = summaries.FirstOrDefault(summary =>
                     string.Equals(summary.GameName, selectedGame, StringComparison.OrdinalIgnoreCase) &&
@@ -1010,6 +1004,34 @@ namespace StatsPlus
         internal static string BuildPersonalBestPropertyName(string gameName, string carModel, string trackVariation)
         {
             return StatsPlusPropertyNames.BuildPersonalBestPropertyName(gameName, carModel, trackVariation);
+        }
+
+        internal static object ResolveSelectedTopLevelTab(
+            object previousSelectedTopLevelTab,
+            IReadOnlyList<GameHistoryTab> refreshedTabs,
+            StatsPlusSettingsTab settingsTab)
+        {
+            if (settingsTab == null)
+            {
+                throw new ArgumentNullException(nameof(settingsTab));
+            }
+
+            if (previousSelectedTopLevelTab is GameHistoryTab previousGameTab)
+            {
+                GameHistoryTab matchingTab = refreshedTabs?.FirstOrDefault(tab =>
+                    string.Equals(tab.GameName, previousGameTab.GameName, StringComparison.OrdinalIgnoreCase));
+                if (matchingTab != null)
+                {
+                    return matchingTab;
+                }
+            }
+
+            if (previousSelectedTopLevelTab is StatsPlusSettingsTab)
+            {
+                return settingsTab;
+            }
+
+            return refreshedTabs?.FirstOrDefault() ?? (object)settingsTab;
         }
 
         private void PublishLapProperties(PluginManager pluginManager)
