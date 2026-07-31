@@ -87,6 +87,36 @@ namespace StatsPlus.Tests
             Assert.AreEqual("Recording disabled for LMU", plugin.DataStatus);
         }
 
+        [TestMethod]
+        public void DataUpdate_WhenCarOrTrackContextIsMissing_SetsStandbyRed()
+        {
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            var gameData = CreateGameData(gameRunning: true, gameName: "LMU");
+            gameData.NewData.CarModel = string.Empty;
+
+            plugin.DataUpdate(_pluginManager, ref gameData);
+
+            Assert.IsFalse(plugin.IsTelemetryActive);
+            Assert.AreEqual("Standby", plugin.LiveStatusLabel);
+            Assert.AreSame(Brushes.Red, plugin.StatusSectionForeground);
+            Assert.AreEqual("Waiting for game, car, and track context", plugin.DataStatus);
+        }
+
+        [TestMethod]
+        public void DataUpdate_WhenTelemetryUpdateThrowsAfterRecording_SetsWaitingStatus()
+        {
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            var gameData = CreateGameData(gameRunning: true, gameName: "LMU");
+
+            plugin.DataUpdate(_pluginManager, ref gameData);
+            _pluginManager.ThrowOnPropertyName = "StatsPlus.SpeedKmh";
+            plugin.DataUpdate(_pluginManager, ref gameData);
+
+            Assert.IsFalse(plugin.IsTelemetryActive);
+            Assert.AreEqual("Standby", plugin.LiveStatusLabel);
+            Assert.AreEqual("Waiting for telemetry", plugin.DataStatus);
+        }
+
         private StatsPlusPlugin CreateInitializedPlugin()
         {
             _plugin = new StatsPlusPlugin();
@@ -133,6 +163,8 @@ namespace StatsPlus.Tests
 
             public Dictionary<string, object> Properties { get; } = new Dictionary<string, object>();
 
+            public string ThrowOnPropertyName { get; set; }
+
             public override string GetCommonStoragePath(params string[] pathParts)
             {
                 Directory.CreateDirectory(_commonStorageRoot);
@@ -151,6 +183,11 @@ namespace StatsPlus.Tests
 
             public override void SetPropertyValue(string propertyName, Type ownerType, object value)
             {
+                if (string.Equals(propertyName, ThrowOnPropertyName, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("Test telemetry update failure.");
+                }
+
                 Properties[propertyName] = value;
             }
         }

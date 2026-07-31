@@ -403,6 +403,17 @@ namespace StatsPlus
                     return;
                 }
 
+                if (string.IsNullOrWhiteSpace(data.GameName)
+                    || string.IsNullOrWhiteSpace(data.NewData.CarModel)
+                    || string.IsNullOrWhiteSpace(data.NewData.TrackName))
+                {
+                    DataStatus = "Waiting for game, car, and track context";
+                    IsTelemetryActive = false;
+                    ClearLiveTelemetryProperties(pluginManager);
+                    _hasLoggedDataError = false;
+                    return;
+                }
+
                 string gameName = NormalizeContextValue(data.GameName, "Unknown Game");
                 if (!IsGameRecordingEnabled(gameName))
                 {
@@ -452,6 +463,7 @@ namespace StatsPlus
             catch (Exception ex)
             {
                 IsTelemetryActive = false;
+                DataStatus = "Waiting for telemetry";
                 if (_hasLoggedDataError)
                 {
                     return;

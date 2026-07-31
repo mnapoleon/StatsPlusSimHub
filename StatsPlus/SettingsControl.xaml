@@ -94,6 +94,7 @@
                                                 Click="ClearSelectedGameButton_Click"
                                                 Content="Clear selected game" />
                                         <Button Width="120"
+                                                Margin="14,0,0,0"
                                                 HorizontalAlignment="Left"
                                                 Click="ClearAllDataButton_Click"
                                                 Content="Clear all data" />
