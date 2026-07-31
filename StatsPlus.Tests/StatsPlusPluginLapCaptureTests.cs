@@ -216,14 +216,17 @@ namespace StatsPlus.Tests
         {
             var plugin = CreateInitializedPlugin();
             var pluginManager = _pluginManager;
+            plugin.Settings.EnableDebugLogging = true;
+            plugin.Settings.GameDebugLogging["assettocorsa"] = true;
 
             SendUpdate(plugin, pluginManager, 0, 0, 0.0, 0.0, gameName: "AssettoCorsa", carModel: "Mazda MX-5", trackName: "Spa", trackNameWithConfig: "Spa GP");
             SendUpdate(plugin, pluginManager, 0, 1, 0.0, 0.0, gameName: "AssettoCorsa", carModel: "Mazda MX-5", trackName: "Spa", trackNameWithConfig: "Spa GP");
             SendUpdate(plugin, pluginManager, 1, 1, 0.0, 0.0, gameName: "AssettoCorsa", carModel: "Mazda MX-5", trackName: "Spa", trackNameWithConfig: "Spa GP");
             SendUpdate(plugin, pluginManager, 1, 1, 0.0, 90.0, gameName: "AssettoCorsa", carModel: "Mazda MX-5", trackName: "Spa", trackNameWithConfig: "Spa GP");
 
-            string logPath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.diagnostics.log");
+            string logPath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.diagnostics.assettocorsa.log");
             Assert.IsTrue(File.Exists(logPath), logPath);
+            Assert.IsFalse(File.Exists(Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.diagnostics.log")));
 
             string log = File.ReadAllText(logPath);
             StringAssert.Contains(log, "CONTEXT SWITCH");

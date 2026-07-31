@@ -432,6 +432,7 @@ namespace StatsPlus
                     if (Settings.EnablePlugin && !data.GameRunning && data.NewData != null)
                     {
                         WriteDiagnosticLog(
+                            data.GameName,
                             "STOP FLUSH",
                             $"pending={_pendingLapCapture} pendingLap={_pendingCompletedLapCount} completed={data.NewData.CompletedLaps} lastLap={FormatTimeSpanSeconds(data.NewData.LastLapTime)} contextReady={HasCurrentRecordingContext()} context=\"{CurrentContext}\"");
                         FinalizePendingLapWithCurrentContext(pluginManager, data);
@@ -452,6 +453,7 @@ namespace StatsPlus
                         data.NewData.CompletedLaps != data.OldData.CompletedLaps)
                     {
                         WriteDiagnosticLog(
+                            data.GameName,
                             "CONTEXT MISSING",
                             $"game=\"{data.GameName}\" car=\"{data.NewData.CarModel}\" track=\"{data.NewData.TrackName}\" oldCompleted={data.OldData.CompletedLaps} newCompleted={data.NewData.CompletedLaps} newLastLap={FormatTimeSpanSeconds(data.NewData.LastLapTime)} currentContextReady={HasCurrentRecordingContext()} currentContext=\"{CurrentContext}\"");
                     }
@@ -669,16 +671,68 @@ namespace StatsPlus
             }
         }
 
-        private void WriteDiagnosticLog(string eventName, string detail)
+        private bool ShouldWriteDiagnosticLog(string gameName)
+        {
+            if (!Settings.EnableDebugLogging)
+            {
+                return false;
+            }
+
+            string settingsKey = GetDebugLoggingSettingsKey(gameName);
+            if (string.IsNullOrWhiteSpace(settingsKey))
+            {
+                return false;
+            }
+
+            if (Settings.GameDebugLogging == null)
+            {
+                Settings.GameDebugLogging = new Dictionary<string, bool>();
+            }
+
+            if (!Settings.GameDebugLogging.TryGetValue(settingsKey, out bool isEnabled))
+            {
+                Settings.GameDebugLogging[settingsKey] = false;
+                return false;
+            }
+
+            return isEnabled;
+        }
+
+        private string GetDiagnosticLogPath(string gameName)
         {
             if (string.IsNullOrWhiteSpace(_diagnosticLogPath))
+            {
+                return string.Empty;
+            }
+
+            string settingsKey = GetDebugLoggingSettingsKey(gameName);
+            if (string.IsNullOrWhiteSpace(settingsKey))
+            {
+                return string.Empty;
+            }
+
+            string directory = Path.GetDirectoryName(_diagnosticLogPath);
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(_diagnosticLogPath);
+            string extension = Path.GetExtension(_diagnosticLogPath);
+            return Path.Combine(directory ?? string.Empty, $"{fileNameWithoutExtension}.{settingsKey}{extension}");
+        }
+
+        private void WriteDiagnosticLog(string gameName, string eventName, string detail)
+        {
+            if (!ShouldWriteDiagnosticLog(gameName))
+            {
+                return;
+            }
+
+            string diagnosticLogPath = GetDiagnosticLogPath(gameName);
+            if (string.IsNullOrWhiteSpace(diagnosticLogPath))
             {
                 return;
             }
 
             try
             {
-                string directory = Path.GetDirectoryName(_diagnosticLogPath);
+                string directory = Path.GetDirectoryName(diagnosticLogPath);
                 if (!string.IsNullOrWhiteSpace(directory))
                 {
                     Directory.CreateDirectory(directory);
@@ -691,7 +745,7 @@ namespace StatsPlus
                     eventName,
                     detail ?? string.Empty,
                     Environment.NewLine);
-                File.AppendAllText(_diagnosticLogPath, line, Encoding.UTF8);
+                File.AppendAllText(diagnosticLogPath, line, Encoding.UTF8);
             }
             catch (Exception ex)
             {
@@ -918,6 +972,7 @@ namespace StatsPlus
         private void SwitchContext(string gameName, string carModel, string trackName, string trackNameWithConfig, PluginManager pluginManager)
         {
             WriteDiagnosticLog(
+                gameName,
                 "CONTEXT SWITCH",
                 $"from=\"{CurrentContext}\" toGame={gameName} toCar=\"{carModel}\" toTrack=\"{trackName}\" toTrackConfig=\"{trackNameWithConfig}\" pending={_pendingLapCapture} pendingLap={_pendingCompletedLapCount}");
 
@@ -1017,6 +1072,7 @@ namespace StatsPlus
             if (data.NewData.CompletedLaps != data.OldData.CompletedLaps && data.NewData.CompletedLaps >= 1)
             {
                 WriteDiagnosticLog(
+                    data.GameName,
                     "LAP BOUNDARY",
                     $"game={data.GameName} oldCompleted={data.OldData.CompletedLaps} newCompleted={data.NewData.CompletedLaps} oldLastLap={FormatTimeSpanSeconds(data.OldData.LastLapTime)} newLastLap={FormatTimeSpanSeconds(data.NewData.LastLapTime)} gameRunning={data.GameRunning} isValid={data.NewData.IsLapValid} car=\"{data.NewData.CarModel}\" track=\"{data.NewData.TrackName}\" trackConfig=\"{data.NewData.TrackNameWithConfig}\" pendingBefore={_pendingLapCapture} pendingLapBefore={_pendingCompletedLapCount}");
 
@@ -1034,6 +1090,7 @@ namespace StatsPlus
                 _lastPendingWaitReason = string.Empty;
 
                 WriteDiagnosticLog(
+                    CurrentGameName,
                     "PENDING QUEUED",
                     $"lap={_pendingCompletedLapCount} observedLastLap={FormatSeconds(_pendingObservedLastLapSeconds)} previousLastLap={FormatSeconds(previousLastLapSeconds)} needsRefresh={_pendingLastLapTimeNeedsRefresh} context=\"{CurrentContext}\"");
             }
@@ -1115,6 +1172,7 @@ namespace StatsPlus
             DataStatus = $"Saved lap {lap.LapNumber} to {CurrentContext}";
 
             WriteDiagnosticLog(
+                gameName,
                 "PENDING SAVED",
                 $"lap={lap.LapNumber} lapTime={FormatSeconds(lap.LapTimeSeconds)} isValid={lap.IsValid} sector1={FormatSeconds(lap.Sector1Seconds)} sector2={FormatSeconds(lap.Sector2Seconds)} sector3={FormatSeconds(lap.Sector3Seconds)} sessionLapCount={SessionLapCount} contextGame={gameName} contextCar=\"{carModel}\" contextTrack=\"{trackName}\" contextTrackConfig=\"{trackNameWithConfig}\"");
 
@@ -1138,6 +1196,7 @@ namespace StatsPlus
 
             _lastPendingWaitReason = waitKey;
             WriteDiagnosticLog(
+                data.GameName,
                 "PENDING WAIT",
                 $"lap={_pendingCompletedLapCount} reason={reason} completed={data.NewData.CompletedLaps} lastLap={FormatTimeSpanSeconds(data.NewData.LastLapTime)} observedLastLap={FormatSeconds(_pendingObservedLastLapSeconds)} needsRefresh={_pendingLastLapTimeNeedsRefresh} previousSavedLastLap={FormatSeconds(LastLapSeconds)} capturedS1={_capturedSector1} capturedS2={_capturedSector2} context=\"{CurrentContext}\"");
         }
@@ -1147,6 +1206,7 @@ namespace StatsPlus
             if (!string.IsNullOrWhiteSpace(reason) && _pendingLapCapture)
             {
                 WriteDiagnosticLog(
+                    CurrentGameName,
                     "PENDING CLEARED",
                     $"lap={_pendingCompletedLapCount} reason={reason} observedLastLap={FormatSeconds(_pendingObservedLastLapSeconds)} needsRefresh={_pendingLastLapTimeNeedsRefresh} context=\"{CurrentContext}\"");
             }
