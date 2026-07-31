@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -23,11 +24,13 @@ namespace StatsPlus
     {
         private const string SettingsFileName = "StatsPlus.settings.json";
         private const string LiteDbDataFileName = "StatsPlus.laps.ldb";
+        private const string DiagnosticLogFileName = "StatsPlus.diagnostics.log";
         private const string Version = "0.2.0";
 
         private bool _hasLoggedDataError;
         private string _settingsPath = string.Empty;
         private string _databasePath = string.Empty;
+        private string _diagnosticLogPath = string.Empty;
         private string _acTrackMapPath = string.Empty;
         private StatsPlusLiteDbRepository _liteDbRepository;
         private Dictionary<string, string> _assettoCorsaTrackMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -49,6 +52,7 @@ namespace StatsPlus
         private int _pendingCompletedLapCount = -1;
         private double _pendingObservedLastLapSeconds = -1.0;
         private bool _pendingLastLapTimeNeedsRefresh;
+        private string _lastPendingWaitReason = string.Empty;
         private double _capturedSector1Seconds;
         private double _capturedSector2Seconds;
         private bool _capturedSector1;
@@ -396,6 +400,14 @@ namespace StatsPlus
 
                 if (!Settings.EnablePlugin || !data.GameRunning || data.NewData == null)
                 {
+                    if (Settings.EnablePlugin && !data.GameRunning && data.NewData != null)
+                    {
+                        WriteDiagnosticLog(
+                            "STOP FLUSH",
+                            $"pending={_pendingLapCapture} pendingLap={_pendingCompletedLapCount} completed={data.NewData.CompletedLaps} lastLap={FormatTimeSpanSeconds(data.NewData.LastLapTime)} contextReady={HasCurrentRecordingContext()} context=\"{CurrentContext}\"");
+                        FinalizePendingLapWithCurrentContext(pluginManager, data);
+                    }
+
                     DataStatus = !Settings.EnablePlugin ? "Plugin disabled" : "Waiting for telemetry";
                     IsTelemetryActive = false;
                     ClearLiveTelemetryProperties(pluginManager);
@@ -407,6 +419,19 @@ namespace StatsPlus
                     || string.IsNullOrWhiteSpace(data.NewData.CarModel)
                     || string.IsNullOrWhiteSpace(data.NewData.TrackName))
                 {
+                    if (data.OldData != null &&
+                        data.NewData.CompletedLaps != data.OldData.CompletedLaps)
+                    {
+                        WriteDiagnosticLog(
+                            "CONTEXT MISSING",
+                            $"game=\"{data.GameName}\" car=\"{data.NewData.CarModel}\" track=\"{data.NewData.TrackName}\" oldCompleted={data.OldData.CompletedLaps} newCompleted={data.NewData.CompletedLaps} newLastLap={FormatTimeSpanSeconds(data.NewData.LastLapTime)} currentContextReady={HasCurrentRecordingContext()} currentContext=\"{CurrentContext}\"");
+                    }
+
+                    if (HasCurrentRecordingContext())
+                    {
+                        QueueLapCaptureIfNeeded(data);
+                    }
+
                     DataStatus = "Waiting for game, car, and track context";
                     IsTelemetryActive = false;
                     ClearLiveTelemetryProperties(pluginManager);
@@ -579,6 +604,7 @@ namespace StatsPlus
 
             _settingsPath = Path.Combine(statsPlusStorageRoot, SettingsFileName);
             _databasePath = Path.Combine(statsPlusStorageRoot, LiteDbDataFileName);
+            _diagnosticLogPath = Path.Combine(statsPlusStorageRoot, DiagnosticLogFileName);
 
             TryMigrateStorageFile(
                 _settingsPath,
@@ -612,6 +638,50 @@ namespace StatsPlus
             {
                 SimHub.Logging.Current.Warn($"StatsPlus - Failed to back up database: {ex.Message}");
             }
+        }
+
+        private void WriteDiagnosticLog(string eventName, string detail)
+        {
+            if (string.IsNullOrWhiteSpace(_diagnosticLogPath))
+            {
+                return;
+            }
+
+            try
+            {
+                string directory = Path.GetDirectoryName(_diagnosticLogPath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                string line = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "[{0:O}] {1} {2}{3}",
+                    DateTime.UtcNow,
+                    eventName,
+                    detail ?? string.Empty,
+                    Environment.NewLine);
+                File.AppendAllText(_diagnosticLogPath, line, Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn($"StatsPlus - Failed to write diagnostic log: {ex.Message}");
+            }
+        }
+
+        private static string FormatSeconds(double seconds)
+        {
+            return seconds > 0
+                ? seconds.ToString("0.000", CultureInfo.InvariantCulture)
+                : "none";
+        }
+
+        private static string FormatTimeSpanSeconds(TimeSpan? value)
+        {
+            return value.HasValue
+                ? FormatSeconds(value.Value.TotalSeconds)
+                : "none";
         }
 
         private PluginSettings LoadSettings()
@@ -815,6 +885,10 @@ namespace StatsPlus
 
         private void SwitchContext(string gameName, string carModel, string trackName, string trackNameWithConfig, PluginManager pluginManager)
         {
+            WriteDiagnosticLog(
+                "CONTEXT SWITCH",
+                $"from=\"{CurrentContext}\" toGame={gameName} toCar=\"{carModel}\" toTrack=\"{trackName}\" toTrackConfig=\"{trackNameWithConfig}\" pending={_pendingLapCapture} pendingLap={_pendingCompletedLapCount}");
+
             CurrentGameName = gameName;
             CurrentCarModel = carModel;
             CurrentTrackName = trackName;
@@ -831,6 +905,7 @@ namespace StatsPlus
             _capturedSector2 = false;
             _pendingLapCapture = false;
             _pendingCompletedLapCount = -1;
+            _lastPendingWaitReason = string.Empty;
             _bestSector1Seconds = 0.0;
             _bestSector2Seconds = 0.0;
             AllTimeBestLapSeconds = GetBestLapSeconds(gameName, carModel, trackNameWithConfig);
@@ -850,6 +925,31 @@ namespace StatsPlus
         private static string NormalizeContextValue(string value, string fallback)
         {
             return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        }
+
+        private bool HasCurrentRecordingContext()
+        {
+            return !string.Equals(CurrentGameName, "No active game", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(CurrentCarModel, "Unknown car", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(CurrentTrackName, "Unknown track", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(CurrentTrackNameWithConfig, "Unknown track variation", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void FinalizePendingLapWithCurrentContext(PluginManager pluginManager, GameData data)
+        {
+            if (!HasLapRepository || !HasCurrentRecordingContext())
+            {
+                return;
+            }
+
+            CaptureSectorData(data);
+            FinalizePendingLapIfReady(
+                pluginManager,
+                data,
+                CurrentGameName,
+                CurrentCarModel,
+                CurrentTrackName,
+                CurrentTrackNameWithConfig);
         }
 
         private void CaptureSectorData(GameData data)
@@ -884,24 +984,26 @@ namespace StatsPlus
 
             if (data.NewData.CompletedLaps != data.OldData.CompletedLaps && data.NewData.CompletedLaps >= 1)
             {
-                if (data.OldData.CompletedLaps == 0 &&
-                    data.NewData.CompletedLaps == 1 &&
-                    SessionLapCount == 0 &&
-                    ToSeconds(data.NewData.LastLapTime) <= 0)
-                {
-                    _pendingLapCapture = false;
-                    _pendingCompletedLapCount = -1;
-                    _pendingObservedLastLapSeconds = -1.0;
-                    _pendingLastLapTimeNeedsRefresh = false;
-                    return;
-                }
+                WriteDiagnosticLog(
+                    "LAP BOUNDARY",
+                    $"game={data.GameName} oldCompleted={data.OldData.CompletedLaps} newCompleted={data.NewData.CompletedLaps} oldLastLap={FormatTimeSpanSeconds(data.OldData.LastLapTime)} newLastLap={FormatTimeSpanSeconds(data.NewData.LastLapTime)} gameRunning={data.GameRunning} isValid={data.NewData.IsLapValid} car=\"{data.NewData.CarModel}\" track=\"{data.NewData.TrackName}\" trackConfig=\"{data.NewData.TrackNameWithConfig}\" pendingBefore={_pendingLapCapture} pendingLapBefore={_pendingCompletedLapCount}");
 
                 _pendingLapCapture = true;
                 _pendingCompletedLapCount = data.NewData.CompletedLaps;
                 _pendingObservedLastLapSeconds = ToSeconds(data.NewData.LastLapTime);
                 double previousLastLapSeconds = ToSeconds(data.OldData.LastLapTime);
+                bool hasAssettoCorsaSectorEvidence = IsAssettoCorsaGame(data.GameName) &&
+                    (_capturedSector1 || _capturedSector2);
                 _pendingLastLapTimeNeedsRefresh = _pendingObservedLastLapSeconds <= 0 ||
-                    AreClose(_pendingObservedLastLapSeconds, previousLastLapSeconds);
+                    (AreClose(_pendingObservedLastLapSeconds, previousLastLapSeconds) &&
+                     LastLapSeconds > 0 &&
+                     AreClose(_pendingObservedLastLapSeconds, LastLapSeconds) &&
+                     !hasAssettoCorsaSectorEvidence);
+                _lastPendingWaitReason = string.Empty;
+
+                WriteDiagnosticLog(
+                    "PENDING QUEUED",
+                    $"lap={_pendingCompletedLapCount} observedLastLap={FormatSeconds(_pendingObservedLastLapSeconds)} previousLastLap={FormatSeconds(previousLastLapSeconds)} needsRefresh={_pendingLastLapTimeNeedsRefresh} context=\"{CurrentContext}\"");
             }
         }
 
@@ -912,14 +1014,27 @@ namespace StatsPlus
                 return;
             }
 
+            if (data.OldData != null &&
+                data.NewData.CompletedLaps != data.OldData.CompletedLaps &&
+                data.NewData.CompletedLaps > _pendingCompletedLapCount &&
+                _pendingLastLapTimeNeedsRefresh &&
+                _pendingObservedLastLapSeconds <= 0)
+            {
+                ClearPendingLapCapture(
+                    $"new-boundary-before-time newCompleted={data.NewData.CompletedLaps} oldCompleted={data.OldData.CompletedLaps}");
+                return;
+            }
+
             double lapTime = ToSeconds(data.NewData.LastLapTime);
             if (lapTime <= 0)
             {
+                LogPendingWait("no-last-lap-time", data);
                 return;
             }
 
             if (_pendingLastLapTimeNeedsRefresh && AreClose(lapTime, _pendingObservedLastLapSeconds))
             {
+                LogPendingWait("last-lap-time-same-as-baseline", data);
                 return;
             }
 
@@ -930,6 +1045,7 @@ namespace StatsPlus
                 LastLapSeconds > 0 &&
                 AreClose(lapTime, LastLapSeconds))
             {
+                LogPendingWait("suspected-stale-previous-lap-time", data);
                 return;
             }
 
@@ -966,10 +1082,11 @@ namespace StatsPlus
             OnPropertyChanged(nameof(AllTimeBestLapSeconds));
             DataStatus = $"Saved lap {lap.LapNumber} to {CurrentContext}";
 
-            _pendingLapCapture = false;
-            _pendingCompletedLapCount = -1;
-            _pendingObservedLastLapSeconds = -1.0;
-            _pendingLastLapTimeNeedsRefresh = false;
+            WriteDiagnosticLog(
+                "PENDING SAVED",
+                $"lap={lap.LapNumber} lapTime={FormatSeconds(lap.LapTimeSeconds)} isValid={lap.IsValid} sector1={FormatSeconds(lap.Sector1Seconds)} sector2={FormatSeconds(lap.Sector2Seconds)} sector3={FormatSeconds(lap.Sector3Seconds)} sessionLapCount={SessionLapCount} contextGame={gameName} contextCar=\"{carModel}\" contextTrack=\"{trackName}\" contextTrackConfig=\"{trackNameWithConfig}\"");
+
+            ClearPendingLapCapture();
             _capturedSector1Seconds = 0.0;
             _capturedSector2Seconds = 0.0;
             _capturedSector1 = false;
@@ -977,6 +1094,36 @@ namespace StatsPlus
 
             PublishLapProperties(pluginManager);
             RefreshStoredTrackSummaries();
+        }
+
+        private void LogPendingWait(string reason, GameData data)
+        {
+            string waitKey = $"{_pendingCompletedLapCount}:{reason}";
+            if (string.Equals(_lastPendingWaitReason, waitKey, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastPendingWaitReason = waitKey;
+            WriteDiagnosticLog(
+                "PENDING WAIT",
+                $"lap={_pendingCompletedLapCount} reason={reason} completed={data.NewData.CompletedLaps} lastLap={FormatTimeSpanSeconds(data.NewData.LastLapTime)} observedLastLap={FormatSeconds(_pendingObservedLastLapSeconds)} needsRefresh={_pendingLastLapTimeNeedsRefresh} previousSavedLastLap={FormatSeconds(LastLapSeconds)} capturedS1={_capturedSector1} capturedS2={_capturedSector2} context=\"{CurrentContext}\"");
+        }
+
+        private void ClearPendingLapCapture(string reason = null)
+        {
+            if (!string.IsNullOrWhiteSpace(reason) && _pendingLapCapture)
+            {
+                WriteDiagnosticLog(
+                    "PENDING CLEARED",
+                    $"lap={_pendingCompletedLapCount} reason={reason} observedLastLap={FormatSeconds(_pendingObservedLastLapSeconds)} needsRefresh={_pendingLastLapTimeNeedsRefresh} context=\"{CurrentContext}\"");
+            }
+
+            _pendingLapCapture = false;
+            _pendingCompletedLapCount = -1;
+            _pendingObservedLastLapSeconds = -1.0;
+            _pendingLastLapTimeNeedsRefresh = false;
+            _lastPendingWaitReason = string.Empty;
         }
 
         private void AddLapToDatabase(string gameName, string carModel, string trackName, string trackNameWithConfig, RecordedLap lap)
