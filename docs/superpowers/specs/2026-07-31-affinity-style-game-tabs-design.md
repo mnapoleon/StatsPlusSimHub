@@ -51,8 +51,21 @@ The live status bar will be a compact horizontal strip styled like Affinity's da
 - Bold values where space allows.
 - Text trimming/wrapping chosen so long game, track, car, or database values do not overlap.
 
+The live state indicator will follow Affinity's state-driven color behavior:
+
+- Add `IsTelemetryActive`, `LiveStatusLabel`, and `StatusSectionForeground` properties to `StatsPlusPlugin`, mirroring Affinity's pattern.
+- `LiveStatusLabel` returns `Recording` when `IsTelemetryActive` is `true`; otherwise it returns `Standby`.
+- `StatusSectionForeground` returns `Brushes.LimeGreen` when `IsTelemetryActive` is `true`; otherwise it returns `Brushes.Red`.
+- The live status label and main `DataStatus` text bind to `StatusSectionForeground`.
+- Supporting metrics keep the neutral StatsPlus/Affinity text colors so the active/inactive state is clear without turning the whole bar green or red.
+
+`IsTelemetryActive` will be `true` when StatsPlus is actively processing supported, enabled, running telemetry for a reliable game/car/track context. It will stay `true` for short-lived active telemetry states such as pending lap capture or telemetry sync around a lap boundary.
+
+`IsTelemetryActive` will be `false` when the plugin is disabled, the game is not running, telemetry data is unavailable, the current game is disabled or unsupported, persistence initialization has failed in a way that prevents normal recording, or the plugin is otherwise waiting for usable telemetry.
+
 The bar will display the current live session state:
 
+- `LiveStatusLabel`
 - `DataStatus`
 - `CurrentContext`
 - `SessionLapCount`
@@ -193,6 +206,7 @@ Existing lap capture, LiteDB repository, migration, and settings tests should co
 - The top-level StatsPlus UI shows one tab per recorded game and a final Settings tab.
 - Settings are no longer the first top-level tab when recorded game history exists.
 - The live status bar is rendered above the scrollable content and remains visible while tab content scrolls.
+- The live status label and `DataStatus` are green while StatsPlus is actively recording telemetry and red while StatsPlus is standby, disabled, unsupported, or waiting for usable telemetry.
 - Each game tab contains a car/track summary grid and a recorded-laps grid for the selected combination.
 - Existing history actions still work from the redesigned UI.
 - Existing settings behavior still works from the final Settings tab.
