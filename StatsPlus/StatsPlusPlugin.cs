@@ -26,6 +26,16 @@ namespace StatsPlus
         private const string LiteDbDataFileName = "StatsPlus.laps.ldb";
         private const string DiagnosticLogFileName = "StatsPlus.diagnostics.log";
         private const string Version = "0.2.0";
+        private static readonly KeyValuePair<string, string>[] DefaultGameDebugLoggingEntries =
+        {
+            new KeyValuePair<string, string>("assettocorsa", "Assetto Corsa"),
+            new KeyValuePair<string, string>("assettocorsaevo", "Assetto Corsa EVO"),
+            new KeyValuePair<string, string>("automobilista2", "Automobilista 2"),
+            new KeyValuePair<string, string>("iracing", "iRacing"),
+            new KeyValuePair<string, string>("lmu", "Le Mans Ultimate"),
+            new KeyValuePair<string, string>("rfactor2", "rFactor 2"),
+            new KeyValuePair<string, string>("raceroomracingexperience", "RaceRoom Racing Experience")
+        };
 
         private bool _hasLoggedDataError;
         private string _settingsPath = string.Empty;
@@ -78,6 +88,23 @@ namespace StatsPlus
         public ObservableCollection<GameHistoryTab> GameHistoryTabs { get; } = new ObservableCollection<GameHistoryTab>();
 
         public ObservableCollection<object> TopLevelTabs { get; } = new ObservableCollection<object>();
+
+        public ObservableCollection<GameDebugLoggingOption> GameDebugLoggingOptions { get; } = new ObservableCollection<GameDebugLoggingOption>();
+
+        public bool IsDebugLoggingEnabled
+        {
+            get => Settings.EnableDebugLogging;
+            set
+            {
+                if (Settings.EnableDebugLogging == value)
+                {
+                    return;
+                }
+
+                Settings.EnableDebugLogging = value;
+                OnPropertyChanged();
+            }
+        }
 
         public object SelectedTopLevelTab
         {
@@ -364,6 +391,8 @@ namespace StatsPlus
             InitializeStoragePaths(pluginManager);
             _acTrackMapPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ac_track_id_map.json");
             Settings = LoadSettings();
+            EnsureDefaultGameDebugLoggingSettings();
+            RefreshGameDebugLoggingOptions();
             _assettoCorsaTrackMap = LoadAssettoCorsaTrackMap();
             InitializeDatabase();
 
@@ -707,6 +736,9 @@ namespace StatsPlus
         internal void ResetSettings()
         {
             Settings.Reset();
+            EnsureDefaultGameDebugLoggingSettings();
+            RefreshGameDebugLoggingOptions();
+            OnPropertyChanged(nameof(IsDebugLoggingEnabled));
             SaveSettings();
         }
 
@@ -1337,6 +1369,156 @@ namespace StatsPlus
                 default:
                     return false;
             }
+        }
+
+        private void EnsureDefaultGameDebugLoggingSettings()
+        {
+            if (Settings.GameDebugLogging == null)
+            {
+                Settings.GameDebugLogging = new Dictionary<string, bool>();
+            }
+
+            RemoveUnsupportedGameDebugLoggingSettings();
+
+            foreach (KeyValuePair<string, string> entry in DefaultGameDebugLoggingEntries)
+            {
+                if (!Settings.GameDebugLogging.ContainsKey(entry.Key))
+                {
+                    Settings.GameDebugLogging[entry.Key] = false;
+                }
+            }
+        }
+
+        private bool EnsureGameDebugLoggingConfigured(string gameName)
+        {
+            string settingsKey = GetDebugLoggingSettingsKey(gameName);
+            if (string.IsNullOrWhiteSpace(settingsKey))
+            {
+                return false;
+            }
+
+            if (Settings.GameDebugLogging == null)
+            {
+                Settings.GameDebugLogging = new Dictionary<string, bool>();
+            }
+
+            if (!Settings.GameDebugLogging.ContainsKey(settingsKey))
+            {
+                Settings.GameDebugLogging[settingsKey] = false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void RefreshGameDebugLoggingOptions()
+        {
+            List<KeyValuePair<string, string>> entries = new List<KeyValuePair<string, string>>();
+            foreach (KeyValuePair<string, string> entry in DefaultGameDebugLoggingEntries)
+            {
+                entries.Add(entry);
+            }
+
+            if (Settings.GameDebugLogging != null)
+            {
+                foreach (string settingsKey in Settings.GameDebugLogging.Keys.OrderBy(GetDebugLoggingDisplayName))
+                {
+                    if (entries.Any(entry => string.Equals(entry.Key, settingsKey, StringComparison.Ordinal)) ||
+                        !IsSupportedDebugLoggingSettingsKey(settingsKey))
+                    {
+                        continue;
+                    }
+
+                    entries.Add(new KeyValuePair<string, string>(settingsKey, GetDebugLoggingDisplayName(settingsKey)));
+                }
+            }
+
+            GameDebugLoggingOptions.Clear();
+            foreach (KeyValuePair<string, string> entry in entries.OrderBy(item => item.Value))
+            {
+                bool isEnabled = Settings.GameDebugLogging != null &&
+                    Settings.GameDebugLogging.TryGetValue(entry.Key, out bool configuredEnabled) &&
+                    configuredEnabled;
+                GameDebugLoggingOptions.Add(new GameDebugLoggingOption(entry.Key, entry.Value, isEnabled, UpdateGameDebugLoggingSetting));
+            }
+        }
+
+        private void UpdateGameDebugLoggingSetting(string settingsKey, bool isEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(settingsKey))
+            {
+                return;
+            }
+
+            if (Settings.GameDebugLogging == null)
+            {
+                Settings.GameDebugLogging = new Dictionary<string, bool>();
+            }
+
+            Settings.GameDebugLogging[settingsKey] = isEnabled;
+        }
+
+        private void RemoveUnsupportedGameDebugLoggingSettings()
+        {
+            if (Settings.GameDebugLogging == null || Settings.GameDebugLogging.Count == 0)
+            {
+                return;
+            }
+
+            List<string> unsupportedKeys = Settings.GameDebugLogging.Keys
+                .Where(settingsKey => !IsSupportedDebugLoggingSettingsKey(settingsKey))
+                .ToList();
+
+            foreach (string unsupportedKey in unsupportedKeys)
+            {
+                Settings.GameDebugLogging.Remove(unsupportedKey);
+            }
+        }
+
+        private string GetDebugLoggingSettingsKey(string gameName)
+        {
+            string normalized = NormalizeGameName(gameName);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return string.Empty;
+            }
+
+            if (string.Equals(normalized, "r3e", StringComparison.Ordinal) ||
+                string.Equals(normalized, "rrre", StringComparison.Ordinal))
+            {
+                return "raceroomracingexperience";
+            }
+
+            return normalized;
+        }
+
+        private string GetDebugLoggingDisplayName(string settingsKey)
+        {
+            switch (settingsKey)
+            {
+                case "assettocorsa":
+                    return "Assetto Corsa";
+                case "assettocorsaevo":
+                    return "Assetto Corsa EVO";
+                case "automobilista2":
+                    return "Automobilista 2";
+                case "iracing":
+                    return "iRacing";
+                case "lmu":
+                    return "Le Mans Ultimate";
+                case "rfactor2":
+                    return "rFactor 2";
+                case "raceroomracingexperience":
+                    return "RaceRoom Racing Experience";
+                default:
+                    return settingsKey ?? string.Empty;
+            }
+        }
+
+        private bool IsSupportedDebugLoggingSettingsKey(string settingsKey)
+        {
+            return DefaultGameDebugLoggingEntries.Any(entry =>
+                string.Equals(entry.Key, settingsKey, StringComparison.Ordinal));
         }
 
         private static string NormalizeGameName(string gameName)
