@@ -123,7 +123,7 @@
                         <StackPanel Margin="12">
                             <TextBlock FontWeight="Bold" Text="StatsPlus" />
                             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">
-                                Records lap and sector times for the active game using a local SQLite lap history store.
+                                Records lap and sector times for the active game using a local LiteDB lap history store.
                             </TextBlock>
                             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">
                                 Published properties: StatsPlus.Version, StatsPlus.Enabled, StatsPlus.Label, StatsPlus.GameName,
@@ -191,7 +191,7 @@
                     <styles:SHSection Title="Stored History">
                         <StackPanel Margin="12">
                             <TextBlock Margin="0,0,0,10" TextWrapping="Wrap">
-                                Recorded laps are partitioned by game, car, and track variation in the local SQLite history database stored under the plugin's StatsPlus data folder.
+                                Recorded laps are partitioned by game, car, and track variation in the local LiteDB history database stored under the plugin's StatsPlus data folder.
                             </TextBlock>
                             <TextBlock Margin="0,0,0,10" TextWrapping="Wrap">
                                 On clean shutdown, StatsPlus refreshes a single rolling <Run Text=".bak" /> copy beside the live database file.

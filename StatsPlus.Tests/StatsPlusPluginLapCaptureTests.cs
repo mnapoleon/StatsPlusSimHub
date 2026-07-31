@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using GameReaderCommon;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SimHub.Plugins;
@@ -12,6 +11,8 @@ namespace StatsPlus.Tests
     public class StatsPlusPluginLapCaptureTests
     {
         private string _tempDirectory;
+        private StatsPlusPlugin _plugin;
+        private PluginManager _pluginManager;
 
         [TestInitialize]
         public void SetUp()
@@ -23,6 +24,7 @@ namespace StatsPlus.Tests
         [TestCleanup]
         public void TearDown()
         {
+            _plugin?.End(_pluginManager);
             if (Directory.Exists(_tempDirectory))
             {
                 Directory.Delete(_tempDirectory, recursive: true);
@@ -32,12 +34,8 @@ namespace StatsPlus.Tests
         [TestMethod]
         public void DataUpdate_DoesNotDuplicatePreviousLapTimeWhenLmuLastLapTimeLagsOneTick()
         {
-            var plugin = new StatsPlusPlugin();
-            var pluginManager = new TestPluginManager(_tempDirectory);
-            plugin.PluginManager = pluginManager;
-            typeof(StatsPlusPlugin)
-                .GetField("_legacyDatabasePath", BindingFlags.Instance | BindingFlags.NonPublic)
-                .SetValue(plugin, Path.Combine(_tempDirectory, "StatsPlus.laps.json"));
+            var plugin = CreateInitializedPlugin();
+            var pluginManager = _pluginManager;
 
             SendUpdate(plugin, pluginManager, 0, 0, 0.0, 0.0);
             SendUpdate(plugin, pluginManager, 0, 1, 0.0, 90.0);
@@ -61,12 +59,8 @@ namespace StatsPlus.Tests
         [TestMethod]
         public void DataUpdate_DoesNotPromoteIncompleteInitialOutLapBoundaryIntoLapOne()
         {
-            var plugin = new StatsPlusPlugin();
-            var pluginManager = new TestPluginManager(_tempDirectory);
-            plugin.PluginManager = pluginManager;
-            typeof(StatsPlusPlugin)
-                .GetField("_legacyDatabasePath", BindingFlags.Instance | BindingFlags.NonPublic)
-                .SetValue(plugin, Path.Combine(_tempDirectory, "StatsPlus.laps.json"));
+            var plugin = CreateInitializedPlugin();
+            var pluginManager = _pluginManager;
 
             SendUpdate(plugin, pluginManager, 0, 0, 0.0, 0.0);
             SendUpdate(plugin, pluginManager, 0, 1, 0.0, 0.0);
@@ -110,6 +104,14 @@ namespace StatsPlus.Tests
             };
 
             plugin.DataUpdate(pluginManager, ref gameData);
+        }
+
+        private StatsPlusPlugin CreateInitializedPlugin()
+        {
+            _plugin = new StatsPlusPlugin();
+            _pluginManager = new TestPluginManager(_tempDirectory);
+            _plugin.Init(_pluginManager);
+            return _plugin;
         }
 
         private static TestStatusData CreateStatusData(int completedLaps, double lastLapSeconds, double sector1Seconds = 0.0, double sector2Seconds = 0.0)
