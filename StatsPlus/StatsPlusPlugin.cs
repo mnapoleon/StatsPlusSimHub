@@ -55,6 +55,8 @@ namespace StatsPlus
         private StoredTrackSummary _selectedTrackSummary;
         private RecordedLapView _selectedLap;
         private GameHistoryTab _selectedGameHistoryTab;
+        private readonly StatsPlusSettingsTab _settingsTab = new StatsPlusSettingsTab();
+        private object _selectedTopLevelTab;
         private ImageSource _pictureIcon;
         private readonly HashSet<string> _registeredPersonalBestProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -69,6 +71,32 @@ namespace StatsPlus
         public string LeftMenuTitle => "StatsPlus";
 
         public ObservableCollection<GameHistoryTab> GameHistoryTabs { get; } = new ObservableCollection<GameHistoryTab>();
+
+        public ObservableCollection<object> TopLevelTabs { get; } = new ObservableCollection<object>();
+
+        public object SelectedTopLevelTab
+        {
+            get => _selectedTopLevelTab;
+            set
+            {
+                if (ReferenceEquals(_selectedTopLevelTab, value))
+                {
+                    return;
+                }
+
+                _selectedTopLevelTab = value;
+                OnPropertyChanged();
+
+                if (value is GameHistoryTab gameTab)
+                {
+                    SelectedGameHistoryTab = gameTab;
+                }
+                else
+                {
+                    SelectedGameHistoryTab = null;
+                }
+            }
+        }
 
         public ObservableCollection<RecordedLapView> SelectedTrackLaps { get; } = new ObservableCollection<RecordedLapView>();
 
@@ -595,6 +623,19 @@ namespace StatsPlus
                 foreach (GameHistoryTab tab in tabs)
                 {
                     GameHistoryTabs.Add(tab);
+                }
+
+                TopLevelTabs.Clear();
+                foreach (GameHistoryTab tab in tabs)
+                {
+                    TopLevelTabs.Add(tab);
+                }
+
+                TopLevelTabs.Add(_settingsTab);
+
+                if (SelectedTopLevelTab == null || !TopLevelTabs.Contains(SelectedTopLevelTab))
+                {
+                    SelectedTopLevelTab = TopLevelTabs.OfType<GameHistoryTab>().FirstOrDefault() ?? (object)_settingsTab;
                 }
 
                 SelectedTrackSummary = summaries.FirstOrDefault(summary =>
