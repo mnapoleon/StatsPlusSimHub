@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
@@ -15,6 +16,8 @@ namespace StatsPlus
         private bool _recordLeMansUltimate = true;
         private bool _recordRFactor2 = true;
         private bool _recordR3E = true;
+        private bool _enableDebugLogging;
+        private Dictionary<string, bool> _gameDebugLogging = new Dictionary<string, bool>();
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -169,6 +172,36 @@ namespace StatsPlus
             }
         }
 
+        public bool EnableDebugLogging
+        {
+            get => _enableDebugLogging;
+            set
+            {
+                if (_enableDebugLogging == value)
+                {
+                    return;
+                }
+
+                _enableDebugLogging = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Dictionary<string, bool> GameDebugLogging
+        {
+            get => _gameDebugLogging;
+            set
+            {
+                if (ReferenceEquals(_gameDebugLogging, value))
+                {
+                    return;
+                }
+
+                _gameDebugLogging = value ?? new Dictionary<string, bool>();
+                OnPropertyChanged();
+            }
+        }
+
         public void Reset()
         {
             EnablePlugin = true;
@@ -181,6 +214,8 @@ namespace StatsPlus
             RecordLeMansUltimate = true;
             RecordRFactor2 = true;
             RecordR3E = true;
+            EnableDebugLogging = false;
+            GameDebugLogging = new Dictionary<string, bool>();
         }
 
         private void OnPropertyChanged([CallerMemberName] string propertyName = null)

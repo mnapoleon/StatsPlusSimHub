@@ -217,6 +217,41 @@
                                 </StackPanel>
                             </styles:SHSection>
 
+                            <styles:SHSection Title="Debug Logging">
+                                <StackPanel Margin="12">
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="190" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0"
+                                                   Margin="0,0,12,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="Debug logging" />
+                                        <CheckBox Grid.Column="1"
+                                                  HorizontalAlignment="Left"
+                                                  Content="Write diagnostic debug log"
+                                                  IsChecked="{Binding DataContext.IsDebugLoggingEnabled, ElementName=Root, Mode=TwoWay}" />
+                                    </Grid>
+
+                                    <TextBlock Margin="0,0,0,8" TextWrapping="Wrap">
+                                        Diagnostic logs are written to separate files per game. Per-game logging options are available when debug logging is enabled.
+                                    </TextBlock>
+
+                                    <ItemsControl IsEnabled="{Binding DataContext.IsDebugLoggingEnabled, ElementName=Root}"
+                                                  ItemsSource="{Binding DataContext.GameDebugLoggingOptions, ElementName=Root}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Margin="0,0,0,6"
+                                                          Content="{Binding DisplayName}"
+                                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </styles:SHSection>
+
                             <styles:SHSection Title="About">
                                 <StackPanel Margin="12">
                                     <TextBlock FontWeight="Bold" Text="StatsPlus" />
