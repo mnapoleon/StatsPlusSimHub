@@ -17,6 +17,16 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void PluginSettings_DefaultsAssettoCorsaCompetizioneRecordingToEnabled()
+        {
+            PluginSettings settings = new PluginSettings();
+            PropertyInfo property = typeof(PluginSettings).GetProperty("RecordAssettoCorsaCompetizione");
+
+            Assert.IsNotNull(property, "Expected a RecordAssettoCorsaCompetizione setting.");
+            Assert.AreEqual(true, property.GetValue(settings));
+        }
+
+        [TestMethod]
         public void IsGameRecordingEnabled_RecognizesLmuToggle()
         {
             StatsPlusPlugin plugin = new StatsPlusPlugin();
@@ -24,6 +34,38 @@ namespace StatsPlus.Tests
 
             Assert.IsNotNull(method, "Expected StatsPlusPlugin.IsGameRecordingEnabled to exist.");
             Assert.AreEqual(true, method.Invoke(plugin, new object[] { "LMU" }));
+        }
+
+        [TestMethod]
+        public void IsGameRecordingEnabled_RecognizesAssettoCorsaCompetizioneToggle()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            MethodInfo method = typeof(StatsPlusPlugin).GetMethod("IsGameRecordingEnabled", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, "Expected StatsPlusPlugin.IsGameRecordingEnabled to exist.");
+            Assert.AreEqual(true, method.Invoke(plugin, new object[] { "AssettoCorsaCompetizione" }));
+        }
+
+        [TestMethod]
+        public void IsAssettoCorsaGame_TreatsCompetizioneAsAssettoFamily()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            MethodInfo method = typeof(StatsPlusPlugin).GetMethod("IsAssettoCorsaGame", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, "Expected StatsPlusPlugin.IsAssettoCorsaGame to exist.");
+            Assert.AreEqual(true, method.Invoke(plugin, new object[] { "Assetto Corsa Competizione" }));
+        }
+
+        [TestMethod]
+        public void GetDisplayTrackNameWithConfig_LeavesCompetizioneTrackNamesUntouched()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            MethodInfo method = typeof(StatsPlusPlugin).GetMethod("GetDisplayTrackNameWithConfig", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, "Expected StatsPlusPlugin.GetDisplayTrackNameWithConfig to exist.");
+            Assert.AreEqual(
+                "ks_spa",
+                method.Invoke(plugin, new object[] { "Assetto Corsa Competizione", "ks_spa" }));
         }
     }
 }

@@ -197,22 +197,25 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
 
                                         <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Assetto Corsa" />
                                         <CheckBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAssettoCorsa, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Assetto Corsa EVO" />
-                                        <CheckBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAssettoCorsaEvo, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Automobilista 2" />
-                                        <CheckBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAutomobilista2, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="iRacing" />
-                                        <CheckBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordIRacing, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Le Mans Ultimate" />
-                                        <CheckBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordLeMansUltimate, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="rFactor 2" />
-                                        <CheckBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordRFactor2, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="6" Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center" Text="RaceRoom / RRRE" />
-                                        <CheckBox Grid.Row="6" Grid.Column="1" Margin="0,0,0,0" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordR3E, ElementName=Root, Mode=TwoWay}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Assetto Corsa Competizione" />
+                                        <CheckBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAssettoCorsaCompetizione, ElementName=Root, Mode=TwoWay}" />
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Assetto Corsa EVO" />
+                                        <CheckBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAssettoCorsaEvo, ElementName=Root, Mode=TwoWay}" />
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Automobilista 2" />
+                                        <CheckBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAutomobilista2, ElementName=Root, Mode=TwoWay}" />
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="iRacing" />
+                                        <CheckBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordIRacing, ElementName=Root, Mode=TwoWay}" />
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Le Mans Ultimate" />
+                                        <CheckBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordLeMansUltimate, ElementName=Root, Mode=TwoWay}" />
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="rFactor 2" />
+                                        <CheckBox Grid.Row="6" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordRFactor2, ElementName=Root, Mode=TwoWay}" />
+                                        <TextBlock Grid.Row="7" Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center" Text="RaceRoom / RRRE" />
+                                        <CheckBox Grid.Row="7" Grid.Column="1" Margin="0,0,0,0" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordR3E, ElementName=Root, Mode=TwoWay}" />
                                     </Grid>
                                 </StackPanel>
                             </styles:SHSection>
