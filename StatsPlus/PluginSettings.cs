@@ -10,6 +10,7 @@ namespace StatsPlus
         private bool _publishTrackInfo = true;
         private string _customLabel = "StatsPlus";
         private bool _recordAssettoCorsa = true;
+        private bool _recordAssettoCorsaCompetizione = true;
         private bool _recordAssettoCorsaEvo = true;
         private bool _recordAutomobilista2 = true;
         private bool _recordIRacing = true;
@@ -78,6 +79,21 @@ namespace StatsPlus
                 }
 
                 _recordAssettoCorsa = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool RecordAssettoCorsaCompetizione
+        {
+            get => _recordAssettoCorsaCompetizione;
+            set
+            {
+                if (_recordAssettoCorsaCompetizione == value)
+                {
+                    return;
+                }
+
+                _recordAssettoCorsaCompetizione = value;
                 OnPropertyChanged();
             }
         }
@@ -208,6 +224,7 @@ namespace StatsPlus
             PublishTrackInfo = true;
             CustomLabel = "StatsPlus";
             RecordAssettoCorsa = true;
+            RecordAssettoCorsaCompetizione = true;
             RecordAssettoCorsaEvo = true;
             RecordAutomobilista2 = true;
             RecordIRacing = true;

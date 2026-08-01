@@ -49,6 +49,7 @@ namespace StatsPlus.Tests
             method.Invoke(plugin, null);
 
             Assert.IsTrue(plugin.Settings.GameDebugLogging.ContainsKey("assettocorsa"));
+            Assert.IsTrue(plugin.Settings.GameDebugLogging.ContainsKey("assettocorsacompetizione"));
             Assert.IsTrue(plugin.Settings.GameDebugLogging.ContainsKey("assettocorsaevo"));
             Assert.IsTrue(plugin.Settings.GameDebugLogging.ContainsKey("automobilista2"));
             Assert.IsTrue(plugin.Settings.GameDebugLogging.ContainsKey("iracing"));
@@ -69,6 +70,20 @@ namespace StatsPlus.Tests
                 .Single(entry => entry.SettingsKey == "raceroomracingexperience");
 
             Assert.AreEqual("RaceRoom Racing Experience", option.DisplayName);
+            Assert.IsFalse(option.IsEnabled);
+        }
+
+        [TestMethod]
+        public void RefreshGameDebugLoggingOptions_RendersAssettoCorsaCompetizioneLabel()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            Invoke(plugin, "EnsureDefaultGameDebugLoggingSettings");
+            Invoke(plugin, "RefreshGameDebugLoggingOptions");
+
+            GameDebugLoggingOption option = plugin.GameDebugLoggingOptions
+                .Single(entry => entry.SettingsKey == "assettocorsacompetizione");
+
+            Assert.AreEqual("Assetto Corsa Competizione", option.DisplayName);
             Assert.IsFalse(option.IsEnabled);
         }
 

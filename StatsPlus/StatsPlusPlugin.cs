@@ -29,6 +29,7 @@ namespace StatsPlus
         private static readonly KeyValuePair<string, string>[] DefaultGameDebugLoggingEntries =
         {
             new KeyValuePair<string, string>("assettocorsa", "Assetto Corsa"),
+            new KeyValuePair<string, string>("assettocorsacompetizione", "Assetto Corsa Competizione"),
             new KeyValuePair<string, string>("assettocorsaevo", "Assetto Corsa EVO"),
             new KeyValuePair<string, string>("automobilista2", "Automobilista 2"),
             new KeyValuePair<string, string>("iracing", "iRacing"),
@@ -447,7 +448,8 @@ namespace StatsPlus
 
                 if (string.IsNullOrWhiteSpace(data.GameName)
                     || string.IsNullOrWhiteSpace(data.NewData.CarModel)
-                    || string.IsNullOrWhiteSpace(data.NewData.TrackName))
+                    || (string.IsNullOrWhiteSpace(data.NewData.TrackName) &&
+                        string.IsNullOrWhiteSpace(data.NewData.TrackNameWithConfig)))
                 {
                     if (data.OldData != null &&
                         data.NewData.CompletedLaps != data.OldData.CompletedLaps)
@@ -490,7 +492,8 @@ namespace StatsPlus
                 }
 
                 string carModel = NormalizeContextValue(data.NewData.CarModel, "Unknown Car");
-                string trackName = NormalizeContextValue(data.NewData.TrackName, "Unknown Track");
+                string trackNameFallback = NormalizeContextValue(data.NewData.TrackNameWithConfig, "Unknown Track");
+                string trackName = NormalizeContextValue(data.NewData.TrackName, trackNameFallback);
                 string trackNameWithConfig = NormalizeContextValue(data.NewData.TrackNameWithConfig, trackName);
 
                 if (!IsSameContext(gameName, carModel, trackName, trackNameWithConfig))
@@ -1381,7 +1384,17 @@ namespace StatsPlus
 
         private bool IsAssettoCorsaGame(string gameName)
         {
-            return string.Equals(NormalizeGameName(gameName), "assettocorsa", StringComparison.Ordinal);
+            string normalized = NormalizeGameName(gameName);
+            return string.Equals(normalized, "assettocorsa", StringComparison.Ordinal) ||
+                string.Equals(normalized, "assettocorsacompetizione", StringComparison.Ordinal) ||
+                string.Equals(normalized, "assettocorsaevo", StringComparison.Ordinal);
+        }
+
+        private bool ShouldMapAssettoCorsaTrackName(string gameName)
+        {
+            string normalized = NormalizeGameName(gameName);
+            return string.Equals(normalized, "assettocorsa", StringComparison.Ordinal) ||
+                string.Equals(normalized, "assettocorsaevo", StringComparison.Ordinal);
         }
 
         private void ClearLiveTelemetryProperties(PluginManager pluginManager)
@@ -1411,6 +1424,8 @@ namespace StatsPlus
             {
                 case "assettocorsa":
                     return Settings.RecordAssettoCorsa;
+                case "assettocorsacompetizione":
+                    return Settings.RecordAssettoCorsaCompetizione;
                 case "assettocorsaevo":
                     return Settings.RecordAssettoCorsaEvo;
                 case "automobilista2":
@@ -1558,6 +1573,8 @@ namespace StatsPlus
             {
                 case "assettocorsa":
                     return "Assetto Corsa";
+                case "assettocorsacompetizione":
+                    return "Assetto Corsa Competizione";
                 case "assettocorsaevo":
                     return "Assetto Corsa EVO";
                 case "automobilista2":
@@ -1659,7 +1676,7 @@ namespace StatsPlus
 
         private string GetDisplayTrackNameWithConfig(string gameName, string rawTrackNameWithConfig)
         {
-            if (!IsAssettoCorsaGame(gameName))
+            if (!ShouldMapAssettoCorsaTrackName(gameName))
             {
                 return rawTrackNameWithConfig;
             }

@@ -58,6 +58,24 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void DataUpdate_WithAccTrackConfigButBlankTrackName_SetsRecordingGreen()
+        {
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            var gameData = CreateGameData(gameRunning: true, gameName: "AssettoCorsaCompetizione");
+            gameData.NewData.CarModel = "Ferrari 296 GT3";
+            gameData.NewData.TrackName = string.Empty;
+            gameData.NewData.TrackNameWithConfig = "Brands Hatch Circuit";
+
+            plugin.DataUpdate(_pluginManager, ref gameData);
+
+            Assert.IsTrue(plugin.IsTelemetryActive);
+            Assert.AreEqual("Recording", plugin.LiveStatusLabel);
+            Assert.AreSame(Brushes.LimeGreen, plugin.StatusSectionForeground);
+            Assert.AreEqual("Recording telemetry", plugin.DataStatus);
+            Assert.AreEqual("Brands Hatch Circuit", _pluginManager.Properties["StatsPlus.TrackName"]);
+        }
+
+        [TestMethod]
         public void DataUpdate_WhenPluginDisabled_SetsStandbyRed()
         {
             StatsPlusPlugin plugin = CreateInitializedPlugin();
