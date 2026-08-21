@@ -34,6 +34,10 @@ namespace StatsPlus
 
         public string TrackNameWithConfigDisplay { get; set; } = string.Empty;
 
+        public string CircuitNameDisplay { get; set; } = string.Empty;
+
+        public string CircuitLayoutDisplay { get; set; } = string.Empty;
+
         public int LapCount { get; set; }
 
         public double BestLapSeconds { get; set; }
@@ -56,6 +60,10 @@ namespace StatsPlus
         public string TrackNameWithConfig { get; set; } = string.Empty;
 
         public string TrackNameWithConfigDisplay { get; set; } = string.Empty;
+
+        public string CircuitNameDisplay { get; set; } = string.Empty;
+
+        public string CircuitLayoutDisplay { get; set; } = string.Empty;
 
         public int LapNumber { get; set; }
 
