@@ -1247,6 +1247,7 @@ namespace StatsPlus
                 {
                     summary.CarModelDisplay = ResolveCarDisplayName(summary.GameName, summary.CarModel, summary.CarModelDisplay);
                     summary.TrackNameWithConfigDisplay = ResolveTrackDisplayName(summary.GameName, summary.TrackNameWithConfig, summary.TrackNameWithConfigDisplay);
+                    ApplyCircuitDisplayFields(summary);
                     yield return summary;
                 }
 
@@ -1533,6 +1534,7 @@ namespace StatsPlus
                 {
                     lapView.CarModelDisplay = ResolveCarDisplayName(lapView.GameName, lapView.CarModel, lapView.CarModelDisplay);
                     lapView.TrackNameWithConfigDisplay = ResolveTrackDisplayName(lapView.GameName, lapView.TrackNameWithConfig, lapView.TrackNameWithConfigDisplay);
+                    ApplyCircuitDisplayFields(lapView);
                 }
             }
 
@@ -1573,6 +1575,20 @@ namespace StatsPlus
             return string.IsNullOrWhiteSpace(displayTrackNameWithConfig)
                 ? GetDisplayTrackNameWithConfig(gameName, rawTrackNameWithConfig)
                 : displayTrackNameWithConfig;
+        }
+
+        private void ApplyCircuitDisplayFields(StoredTrackSummary summary)
+        {
+            CircuitDisplayParts parts = _gameProfiles.Resolve(summary.GameName).GetCircuitDisplayParts(summary.TrackNameWithConfigDisplay);
+            summary.CircuitNameDisplay = parts.CircuitNameDisplay;
+            summary.CircuitLayoutDisplay = parts.CircuitLayoutDisplay;
+        }
+
+        private void ApplyCircuitDisplayFields(RecordedLapView lapView)
+        {
+            CircuitDisplayParts parts = _gameProfiles.Resolve(lapView.GameName).GetCircuitDisplayParts(lapView.TrackNameWithConfigDisplay);
+            lapView.CircuitNameDisplay = parts.CircuitNameDisplay;
+            lapView.CircuitLayoutDisplay = parts.CircuitLayoutDisplay;
         }
 
         private string GetDisplayTrackNameWithConfig(string gameName, string rawTrackNameWithConfig)
