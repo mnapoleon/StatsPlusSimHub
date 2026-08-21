@@ -92,6 +92,76 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void RefreshStoredTrackSummaries_PopulatesAffinityStyleCircuitColumns()
+        {
+            SeedLap("Automobilista2", "Formula Trainer", "Buenos_Aires", "Buenos_Aires-Buenos_Aires_Circuito_15", 118.5, new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+
+            StoredTrackSummary summary = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single().Tracks.Single();
+
+            Assert.AreEqual("Buenos_Aires-Buenos_Aires_Circuito_15", summary.TrackNameWithConfig);
+            Assert.AreEqual("Buenos Aires", summary.CircuitNameDisplay);
+            Assert.AreEqual("Buenos Aires Circuito 15", summary.CircuitLayoutDisplay);
+        }
+
+        [TestMethod]
+        public void SelectedTrackSummary_LoadsRecordedLapsAndPopulatesCircuitDisplayWithoutChangingLookup()
+        {
+            SeedLap("RFactor2", "BTCC", "Lime Rock Park", "Lime Rock Park -- No Chicanes", 62.25, new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            GameHistoryTab tab = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single();
+
+            plugin.SelectedTrackSummary = tab.Tracks.Single();
+
+            Assert.AreEqual(1, plugin.SelectedTrackLaps.Count);
+            Assert.AreEqual("Lime Rock Park -- No Chicanes", plugin.SelectedTrackLaps[0].TrackNameWithConfig);
+            Assert.AreEqual("Lime Rock Park", plugin.SelectedTrackLaps[0].CircuitNameDisplay);
+            Assert.AreEqual("No Chicanes", plugin.SelectedTrackLaps[0].CircuitLayoutDisplay);
+        }
+
+        [TestMethod]
+        public void SelectedTrackSummary_LoadsLapsByRawTrackIdentityWhenCircuitDisplaysCollide()
+        {
+            SeedLap("IRacing", "Mazda MX-5", "spielberg gp", "spielberg gp-Grand Prix", 91.25, new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
+            SeedLap("IRacing", "Mazda MX-5", "spielberg_gp", "spielberg_gp-Grand Prix", 90.50, new DateTime(2026, 8, 21, 12, 5, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            GameHistoryTab tab = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single();
+
+            StoredTrackSummary spacedRawTrack = tab.Tracks.Single(summary => summary.TrackNameWithConfig == "spielberg gp-Grand Prix");
+            StoredTrackSummary underscoreRawTrack = tab.Tracks.Single(summary => summary.TrackNameWithConfig == "spielberg_gp-Grand Prix");
+
+            Assert.AreEqual(spacedRawTrack.CircuitNameDisplay, underscoreRawTrack.CircuitNameDisplay);
+            Assert.AreEqual(spacedRawTrack.CircuitLayoutDisplay, underscoreRawTrack.CircuitLayoutDisplay);
+            Assert.AreEqual("Spielberg GP", spacedRawTrack.CircuitNameDisplay);
+            Assert.AreEqual("Grand Prix", spacedRawTrack.CircuitLayoutDisplay);
+            Assert.AreEqual("Spielberg GP", underscoreRawTrack.CircuitNameDisplay);
+            Assert.AreEqual("Grand Prix", underscoreRawTrack.CircuitLayoutDisplay);
+
+            plugin.SelectedTrackSummary = spacedRawTrack;
+            Assert.AreEqual("spielberg gp-Grand Prix", plugin.SelectedTrackLaps[0].TrackNameWithConfig);
+            Assert.AreEqual(91.25, plugin.SelectedTrackLaps[0].LapTimeSeconds, 0.0001);
+
+            plugin.SelectedTrackSummary = underscoreRawTrack;
+            Assert.AreEqual("spielberg_gp-Grand Prix", plugin.SelectedTrackLaps[0].TrackNameWithConfig);
+            Assert.AreEqual(90.50, plugin.SelectedTrackLaps[0].LapTimeSeconds, 0.0001);
+        }
+
+        [TestMethod]
+        public void PersonalBestProperties_KeepRawTrackIdentityAfterCircuitDisplayPopulation()
+        {
+            SeedLap("AssettoCorsa", "GT Tornado V12", "ks_brands_hatch", "ks_brands_hatch-indy", 48.265, new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            StoredTrackSummary summary = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single().Tracks.Single();
+
+            Assert.AreEqual("Brands Hatch - Indy", summary.CircuitNameDisplay);
+            Assert.AreEqual("Brands Hatch - Indy", summary.CircuitLayoutDisplay);
+
+            Assert.IsTrue(_pluginManager.Properties.ContainsKey("StatsPlus.PersonalBest.AssettoCorsa.GT_Tornado_V12.ks_brands_hatch_indy"));
+            Assert.IsFalse(_pluginManager.Properties.ContainsKey("StatsPlus.PersonalBest.AssettoCorsa.GT_Tornado_V12.Brands_Hatch_Indy"));
+            Assert.AreEqual(48.265, (double)_pluginManager.Properties["StatsPlus.PersonalBest.AssettoCorsa.GT_Tornado_V12.ks_brands_hatch_indy"], 0.0001);
+        }
+
+        [TestMethod]
         public void ClearSelectedGameData_RemovesGameTabAndSelectsRemainingGameOrSettings()
         {
             SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25, new DateTime(2026, 7, 31, 12, 0, 0, DateTimeKind.Utc));

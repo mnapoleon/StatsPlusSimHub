@@ -43,6 +43,16 @@ Important fields:
 - `CreatedUtc`
 - `LastUpdatedUtc`
 
+StatsPlus resolves supported games through lightweight game profiles. Profiles own recording-toggle lookup, debug settings keys, track display mapping, circuit/layout display, and small game-specific sector-layout rules.
+
+Stored-history UI rows resolve the raw `TrackNameWithConfig` into display-oriented fields before binding:
+
+- `TrackNameWithConfigDisplay` keeps the full resolved track display text.
+- `CircuitNameDisplay` and `CircuitLayoutDisplay` mirror Affinity's track display columns.
+- `CarModelDisplay` keeps a display-friendly car label when available.
+
+Raw `GameName`, `CarModel`, and `TrackNameWithConfig` remain the lookup identity for lap rows and personal-best properties. Display fields are intentionally fuzzy search targets. An Affinity-style track search should match `TrackNameWithConfigDisplay`, `CircuitNameDisplay`, and `CircuitLayoutDisplay` together. Future exact filters should query raw `GameName`, `CarModel`, `RawTrackName`, and `TrackNameWithConfig`; if exact layout filtering is needed, add a separate transient raw layout key then instead of treating `CircuitLayoutDisplay` as a durable identity.
+
 `laps` contains one document per recorded lap.
 
 Important fields:

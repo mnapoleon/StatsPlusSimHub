@@ -116,6 +116,18 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void EnsureGameDebugLoggingConfigured_UsesProfileSettingsKeyForAliases()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            MethodInfo method = typeof(StatsPlusPlugin).GetMethod("EnsureGameDebugLoggingConfigured", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, "Expected StatsPlusPlugin.EnsureGameDebugLoggingConfigured to exist.");
+            Assert.AreEqual(true, method.Invoke(plugin, new object[] { "RRRE" }));
+            Assert.IsTrue(plugin.Settings.GameDebugLogging.ContainsKey("raceroomracingexperience"));
+            Assert.IsFalse(plugin.Settings.GameDebugLogging.ContainsKey("rrre"));
+        }
+
+        [TestMethod]
         public void IsDebugLoggingEnabled_UpdatesSettingAndRaisesPropertyChanged()
         {
             StatsPlusPlugin plugin = new StatsPlusPlugin();
