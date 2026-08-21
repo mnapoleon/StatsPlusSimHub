@@ -44,6 +44,7 @@ namespace StatsPlus
         private string _diagnosticLogPath = string.Empty;
         private string _acTrackMapPath = string.Empty;
         private StatsPlusLiteDbRepository _liteDbRepository;
+        private readonly StatsPlusGameProfileRegistry _gameProfiles = StatsPlusGameProfileRegistry.CreateDefault();
         private Dictionary<string, string> _assettoCorsaTrackMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private double _sessionBestLapSeconds;
         private double _lastLapSeconds;
@@ -1358,42 +1359,14 @@ namespace StatsPlus
 
         private void InferSectorLayout(string gameName, double lapTime, ref double sector1, ref double sector2, ref double sector3)
         {
-            if (lapTime <= 0)
-            {
-                sector1 = 0.0;
-                sector2 = 0.0;
-                sector3 = 0.0;
-                return;
-            }
-
-            if (sector1 > 0 && sector2 > 0)
-            {
-                sector3 = Math.Max(0.0, lapTime - sector1 - sector2);
-                return;
-            }
-
-            if (IsAssettoCorsaGame(gameName) && sector1 > 0 && sector2 <= 0)
-            {
-                sector2 = Math.Max(0.0, lapTime - sector1);
-                sector3 = 0.0;
-                return;
-            }
-
-            sector3 = lapTime;
+            _gameProfiles.Resolve(gameName).InferSectorLayout(lapTime, ref sector1, ref sector2, ref sector3);
         }
 
         private bool IsAssettoCorsaGame(string gameName)
         {
-            string normalized = NormalizeGameName(gameName);
+            string normalized = StatsPlusGameName.Normalize(gameName);
             return string.Equals(normalized, "assettocorsa", StringComparison.Ordinal) ||
                 string.Equals(normalized, "assettocorsacompetizione", StringComparison.Ordinal) ||
-                string.Equals(normalized, "assettocorsaevo", StringComparison.Ordinal);
-        }
-
-        private bool ShouldMapAssettoCorsaTrackName(string gameName)
-        {
-            string normalized = NormalizeGameName(gameName);
-            return string.Equals(normalized, "assettocorsa", StringComparison.Ordinal) ||
                 string.Equals(normalized, "assettocorsaevo", StringComparison.Ordinal);
         }
 
@@ -1418,32 +1391,7 @@ namespace StatsPlus
 
         private bool IsGameRecordingEnabled(string gameName)
         {
-            string normalized = NormalizeGameName(gameName);
-
-            switch (normalized)
-            {
-                case "assettocorsa":
-                    return Settings.RecordAssettoCorsa;
-                case "assettocorsacompetizione":
-                    return Settings.RecordAssettoCorsaCompetizione;
-                case "assettocorsaevo":
-                    return Settings.RecordAssettoCorsaEvo;
-                case "automobilista2":
-                    return Settings.RecordAutomobilista2;
-                case "iracing":
-                    return Settings.RecordIRacing;
-                case "lmu":
-                case "lemansultimate":
-                    return Settings.RecordLeMansUltimate;
-                case "rfactor2":
-                    return Settings.RecordRFactor2;
-                case "raceroomracingexperience":
-                case "r3e":
-                case "rrre":
-                    return Settings.RecordR3E;
-                default:
-                    return false;
-            }
+            return _gameProfiles.Resolve(gameName).IsRecordingEnabled(Settings);
         }
 
         private void EnsureDefaultGameDebugLoggingSettings()
@@ -1552,69 +1500,22 @@ namespace StatsPlus
 
         private string GetDebugLoggingSettingsKey(string gameName)
         {
-            string normalized = NormalizeGameName(gameName);
-            if (string.IsNullOrWhiteSpace(normalized))
-            {
-                return string.Empty;
-            }
-
-            if (string.Equals(normalized, "r3e", StringComparison.Ordinal) ||
-                string.Equals(normalized, "rrre", StringComparison.Ordinal))
-            {
-                return "raceroomracingexperience";
-            }
-
-            return normalized;
+            return _gameProfiles.Resolve(gameName).SettingsKey;
         }
 
         private string GetDebugLoggingDisplayName(string settingsKey)
         {
-            switch (settingsKey)
-            {
-                case "assettocorsa":
-                    return "Assetto Corsa";
-                case "assettocorsacompetizione":
-                    return "Assetto Corsa Competizione";
-                case "assettocorsaevo":
-                    return "Assetto Corsa EVO";
-                case "automobilista2":
-                    return "Automobilista 2";
-                case "iracing":
-                    return "iRacing";
-                case "lmu":
-                    return "Le Mans Ultimate";
-                case "rfactor2":
-                    return "rFactor 2";
-                case "raceroomracingexperience":
-                    return "RaceRoom Racing Experience";
-                default:
-                    return settingsKey ?? string.Empty;
-            }
+            IStatsPlusGameProfile profile = _gameProfiles.Resolve(settingsKey);
+            return string.IsNullOrWhiteSpace(profile.DisplayName)
+                ? settingsKey ?? string.Empty
+                : profile.DisplayName;
         }
 
         private bool IsSupportedDebugLoggingSettingsKey(string settingsKey)
         {
-            return DefaultGameDebugLoggingEntries.Any(entry =>
-                string.Equals(entry.Key, settingsKey, StringComparison.Ordinal));
-        }
-
-        private static string NormalizeGameName(string gameName)
-        {
-            if (string.IsNullOrWhiteSpace(gameName))
-            {
-                return string.Empty;
-            }
-
-            StringBuilder builder = new StringBuilder(gameName.Length);
-            foreach (char character in gameName)
-            {
-                if (char.IsLetterOrDigit(character))
-                {
-                    builder.Append(char.ToLowerInvariant(character));
-                }
-            }
-
-            return builder.ToString();
+            IStatsPlusGameProfile profile = _gameProfiles.Resolve(settingsKey);
+            return !string.IsNullOrWhiteSpace(settingsKey) &&
+                string.Equals(profile.SettingsKey, settingsKey, StringComparison.Ordinal);
         }
 
         private void LoadSelectedTrackLaps(DateTime? selectedTimestamp = null)
@@ -1676,19 +1577,9 @@ namespace StatsPlus
 
         private string GetDisplayTrackNameWithConfig(string gameName, string rawTrackNameWithConfig)
         {
-            if (!ShouldMapAssettoCorsaTrackName(gameName))
-            {
-                return rawTrackNameWithConfig;
-            }
-
-            if (string.IsNullOrWhiteSpace(rawTrackNameWithConfig))
-            {
-                return rawTrackNameWithConfig;
-            }
-
-            return _assettoCorsaTrackMap.TryGetValue(rawTrackNameWithConfig, out string mappedName)
-                ? mappedName
-                : rawTrackNameWithConfig;
+            return _gameProfiles.Resolve(gameName).GetTrackDisplayName(
+                rawTrackNameWithConfig,
+                new StatsPlusTrackDisplayContext(_assettoCorsaTrackMap));
         }
     }
 }

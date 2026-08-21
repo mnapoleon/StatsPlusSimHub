@@ -37,6 +37,16 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void IsGameRecordingEnabled_RecognizesLeMansUltimateAlias()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            MethodInfo method = typeof(StatsPlusPlugin).GetMethod("IsGameRecordingEnabled", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, "Expected StatsPlusPlugin.IsGameRecordingEnabled to exist.");
+            Assert.AreEqual(true, method.Invoke(plugin, new object[] { "Le Mans Ultimate" }));
+        }
+
+        [TestMethod]
         public void IsGameRecordingEnabled_RecognizesAssettoCorsaCompetizioneToggle()
         {
             StatsPlusPlugin plugin = new StatsPlusPlugin();
