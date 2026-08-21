@@ -61,7 +61,7 @@ Use these practices for each StatsPlusSimHub change unless the user explicitly g
 
 22. Update docs when a reusable SimHub behavior, storage lesson, dependency gotcha, or game-specific telemetry rule is learned.
 
-23. Before commits or pull requests, inspect the diff and staged files so only intended changes are included.
+23. Before commits or pull requests, inspect the diff and staged files so only intended changes are included. Include the relevant `docs/superpowers/plans/` and `docs/superpowers/specs/` files in the commit when they were created or updated for the change.
 
 24. Use pull request titles with the repo convention: `major:`, `minor:`, or `patch:`. New game support and visible feature additions usually use `minor:`; fixes use `patch:`; storage or schema migrations use `major:`.
 
