@@ -43,7 +43,7 @@ Important fields:
 - `CreatedUtc`
 - `LastUpdatedUtc`
 
-StatsPlus resolves supported games through lightweight game profiles. Profiles own recording-toggle lookup, debug settings keys, track display mapping, circuit/layout display, and small game-specific sector-layout rules.
+StatsPlus resolves supported games through lightweight game profiles. Profiles own recording-toggle lookup, supported-game/debug metadata, track display mapping, circuit/layout display, sector-layout inference, and game-specific lap-boundary capabilities. `StatsPlusPlugin` owns game-agnostic telemetry orchestration and resolves a profile instead of classifying games directly.
 
 Stored-history UI rows resolve the raw `TrackNameWithConfig` into display-oriented fields before binding:
 

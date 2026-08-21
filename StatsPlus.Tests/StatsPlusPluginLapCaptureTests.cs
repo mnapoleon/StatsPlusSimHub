@@ -184,17 +184,20 @@ namespace StatsPlus.Tests
             Assert.AreEqual(48.265, laps[1].LapTimeSeconds, 0.0001, lapSummary);
         }
 
-        [TestMethod]
-        public void DataUpdate_RecordsAssettoCorsaBackToBackLapsWithSameTimeWhenSectorsChange()
+        [DataTestMethod]
+        [DataRow("AssettoCorsa")]
+        [DataRow("AssettoCorsaCompetizione")]
+        [DataRow("AssettoCorsaEvo")]
+        public void DataUpdate_RecordsAssettoFamilyBackToBackLapsWithSameTimeWhenSectorsChange(string gameName)
         {
             var plugin = CreateInitializedPlugin();
             var pluginManager = _pluginManager;
 
-            SendUpdate(plugin, pluginManager, 0, 0, 0.0, 0.0, gameName: "AssettoCorsa", carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
-            SendUpdate(plugin, pluginManager, 0, 1, 48.815, 48.815, 28.500, 20.315, gameName: "AssettoCorsa", carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
-            SendUpdate(plugin, pluginManager, 1, 1, 48.815, 48.815, gameName: "AssettoCorsa", carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
-            SendUpdate(plugin, pluginManager, 1, 2, 48.815, 48.815, 27.000, 21.815, gameName: "AssettoCorsa", carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
-            SendUpdate(plugin, pluginManager, 2, 2, 48.815, 48.815, gameName: "AssettoCorsa", carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
+            SendUpdate(plugin, pluginManager, 0, 0, 0.0, 0.0, gameName: gameName, carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
+            SendUpdate(plugin, pluginManager, 0, 1, 48.815, 48.815, 28.500, 20.315, gameName: gameName, carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
+            SendUpdate(plugin, pluginManager, 1, 1, 48.815, 48.815, gameName: gameName, carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
+            SendUpdate(plugin, pluginManager, 1, 2, 48.815, 48.815, 27.000, 21.815, gameName: gameName, carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
+            SendUpdate(plugin, pluginManager, 2, 2, 48.815, 48.815, gameName: gameName, carModel: "GT Tornado V12", trackName: "ks_brands_hatch", trackNameWithConfig: "ks_brands_hatch-indy");
 
             var summary = plugin.GameHistoryTabs.Single().Tracks.Single();
             plugin.SelectedTrackSummary = summary;
