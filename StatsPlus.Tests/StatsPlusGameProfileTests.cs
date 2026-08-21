@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
@@ -121,6 +122,9 @@ namespace StatsPlus.Tests
             Assert.AreEqual(
                 profiles.Length,
                 profiles.Select(profile => profile.SettingsKey).Distinct().Count());
+            Assert.AreEqual(
+                profiles.Length,
+                profiles.Select(profile => profile.DisplayName).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         }
 
         [TestMethod]

@@ -95,15 +95,15 @@ namespace StatsPlus.Tests
             Invoke(plugin, "EnsureDefaultGameDebugLoggingSettings");
             Invoke(plugin, "RefreshGameDebugLoggingOptions");
 
-            string[] expectedKeys = registry.SupportedProfiles
+            KeyValuePair<string, string>[] expectedOptions = registry.SupportedProfiles
                 .OrderBy(profile => profile.DisplayName)
-                .Select(profile => profile.SettingsKey)
+                .Select(profile => new KeyValuePair<string, string>(profile.SettingsKey, profile.DisplayName))
                 .ToArray();
-            string[] actualKeys = plugin.GameDebugLoggingOptions
-                .Select(option => option.SettingsKey)
+            KeyValuePair<string, string>[] actualOptions = plugin.GameDebugLoggingOptions
+                .Select(option => new KeyValuePair<string, string>(option.SettingsKey, option.DisplayName))
                 .ToArray();
 
-            CollectionAssert.AreEqual(expectedKeys, actualKeys);
+            CollectionAssert.AreEqual(expectedOptions, actualOptions);
         }
 
         [TestMethod]
