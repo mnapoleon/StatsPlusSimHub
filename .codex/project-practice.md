@@ -26,15 +26,17 @@ Use these practices for each StatsPlusSimHub change unless the user explicitly g
 
 11. Keep per-game support complete across all expected places: recording toggle, settings UI checkbox, game normalization/key mapping, diagnostic logging option, runtime recognition, tab/history display, and tests.
 
-12. Keep diagnostic logging centralized. Route through the plugin's logging helper, use per-game logs when enabled, and verify logs under `C:\Program Files (x86)\SimHub\PluginsData\StatsPlus`.
+12. Put new game-specific differences behind the StatsPlus game-profile interface and per-game implementations whenever that behavior fits the profile model. Prefer adding or extending an `IStatsPlusGameProfile` implementation over adding new direct `IsXGame` branches in plugin code; only keep direct branches when the behavior is intentionally outside the profile boundary and document why.
 
-13. Runtime storage belongs under `PluginsData\StatsPlus`. Settings remain JSON; lap history is LiteDB at `StatsPlus.laps.ldb`.
+13. Keep diagnostic logging centralized. Route through the plugin's logging helper, use per-game logs when enabled, and verify logs under `C:\Program Files (x86)\SimHub\PluginsData\StatsPlus`.
 
-14. Preserve SimHub dependency compatibility. StatsPlus must not overwrite SimHub's shared `LiteDB.dll` or `System.Buffers.dll`; the LiteDB `4.1.4` warning is currently known and accepted.
+14. Runtime storage belongs under `PluginsData\StatsPlus`. Settings remain JSON; lap history is LiteDB at `StatsPlus.laps.ldb`.
 
-15. When inspecting live SimHub LiteDB files, copy them to a temp or workspace snapshot first if SimHub may have them open.
+15. Preserve SimHub dependency compatibility. StatsPlus must not overwrite SimHub's shared `LiteDB.dll` or `System.Buffers.dll`; the LiteDB `4.1.4` warning is currently known and accepted.
 
-16. Standard verification before claiming done:
+16. When inspecting live SimHub LiteDB files, copy them to a temp or workspace snapshot first if SimHub may have them open.
+
+17. Standard verification before claiming done:
 
     ```powershell
     dotnet test StatsPlus.Tests\StatsPlus.Tests.csproj
@@ -43,7 +45,7 @@ Use these practices for each StatsPlusSimHub change unless the user explicitly g
 
     Use the solution build with the same no-deploy override when broader coverage is needed.
 
-17. If deploying for manual SimHub testing, run:
+18. If deploying for manual SimHub testing, run:
 
     ```powershell
     dotnet build StatsPlus\StatsPlus.csproj
@@ -51,20 +53,20 @@ Use these practices for each StatsPlusSimHub change unless the user explicitly g
 
     Verify it copied only plugin output to `C:\Program Files (x86)\SimHub`.
 
-18. If SimHub is running and locks DLLs, report that clearly and ask the user to close SimHub before retrying the copy.
+19. If SimHub is running and locks DLLs, report that clearly and ask the user to close SimHub before retrying the copy.
 
-19. After manual testing, verify with evidence: check the latest per-game diagnostic log, query the LiteDB snapshot, confirm lap count, times, sectors, game, car, and track, and call out any remaining oddities.
+20. After manual testing, verify with evidence: check the latest per-game diagnostic log, query the LiteDB snapshot, confirm lap count, times, sectors, game, car, and track, and call out any remaining oddities.
 
-20. Update docs when a reusable SimHub behavior, storage lesson, dependency gotcha, or game-specific telemetry rule is learned.
+21. Update docs when a reusable SimHub behavior, storage lesson, dependency gotcha, or game-specific telemetry rule is learned.
 
-21. Before commits or pull requests, inspect the diff and staged files so only intended changes are included.
+22. Before commits or pull requests, inspect the diff and staged files so only intended changes are included.
 
-22. Use pull request titles with the repo convention: `major:`, `minor:`, or `patch:`. New game support and visible feature additions usually use `minor:`; fixes use `patch:`; storage or schema migrations use `major:`.
+23. Use pull request titles with the repo convention: `major:`, `minor:`, or `patch:`. New game support and visible feature additions usually use `minor:`; fixes use `patch:`; storage or schema migrations use `major:`.
 
-23. Pull request bodies should include summary, verification commands and results, known warnings such as LiteDB `NU1904`, and any manual SimHub smoke-test evidence.
+24. Pull request bodies should include summary, verification commands and results, known warnings such as LiteDB `NU1904`, and any manual SimHub smoke-test evidence.
 
-24. After a pull request is merged, switch back to `main`, pull, confirm status, and clean up local feature branches/worktrees only when safe.
+25. After a pull request is merged, switch back to `main`, pull, confirm status, and clean up local feature branches/worktrees only when safe.
 
-25. If scope expands mid-branch, pause and make a note in docs instead of piling unrelated follow-up work into the same change.
+26. If scope expands mid-branch, pause and make a note in docs instead of piling unrelated follow-up work into the same change.
 
-26. Keep final responses concise but evidence-based: files changed, tests/build run, deployment status, branch or pull request link, and known caveats.
+27. Keep final responses concise but evidence-based: files changed, tests/build run, deployment status, branch or pull request link, and known caveats.
