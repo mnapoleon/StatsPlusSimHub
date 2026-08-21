@@ -57,16 +57,6 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
-        public void IsAssettoCorsaGame_TreatsCompetizioneAsAssettoFamily()
-        {
-            StatsPlusPlugin plugin = new StatsPlusPlugin();
-            MethodInfo method = typeof(StatsPlusPlugin).GetMethod("IsAssettoCorsaGame", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            Assert.IsNotNull(method, "Expected StatsPlusPlugin.IsAssettoCorsaGame to exist.");
-            Assert.AreEqual(true, method.Invoke(plugin, new object[] { "Assetto Corsa Competizione" }));
-        }
-
-        [TestMethod]
         public void GetDisplayTrackNameWithConfig_LeavesCompetizioneTrackNamesUntouched()
         {
             StatsPlusPlugin plugin = new StatsPlusPlugin();

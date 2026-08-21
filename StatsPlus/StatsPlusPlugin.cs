@@ -1084,13 +1084,15 @@ namespace StatsPlus
                 _pendingCompletedLapCount = data.NewData.CompletedLaps;
                 _pendingObservedLastLapSeconds = ToSeconds(data.NewData.LastLapTime);
                 double previousLastLapSeconds = ToSeconds(data.OldData.LastLapTime);
-                bool hasAssettoCorsaSectorEvidence = IsAssettoCorsaGame(data.GameName) &&
+                IStatsPlusGameProfile profile = _gameProfiles.Resolve(data.GameName);
+                bool hasProfileSectorEvidence =
+                    profile.UsesCapturedSectorsAsLapBoundaryEvidence &&
                     (_capturedSector1 || _capturedSector2);
                 _pendingLastLapTimeNeedsRefresh = _pendingObservedLastLapSeconds <= 0 ||
                     (AreClose(_pendingObservedLastLapSeconds, previousLastLapSeconds) &&
                      LastLapSeconds > 0 &&
                      AreClose(_pendingObservedLastLapSeconds, LastLapSeconds) &&
-                     !hasAssettoCorsaSectorEvidence);
+                     !hasProfileSectorEvidence);
                 _lastPendingWaitReason = string.Empty;
 
                 WriteDiagnosticLog(
@@ -1361,14 +1363,6 @@ namespace StatsPlus
         private void InferSectorLayout(string gameName, double lapTime, ref double sector1, ref double sector2, ref double sector3)
         {
             _gameProfiles.Resolve(gameName).InferSectorLayout(lapTime, ref sector1, ref sector2, ref sector3);
-        }
-
-        private bool IsAssettoCorsaGame(string gameName)
-        {
-            string normalized = StatsPlusGameName.Normalize(gameName);
-            return string.Equals(normalized, "assettocorsa", StringComparison.Ordinal) ||
-                string.Equals(normalized, "assettocorsacompetizione", StringComparison.Ordinal) ||
-                string.Equals(normalized, "assettocorsaevo", StringComparison.Ordinal);
         }
 
         private void ClearLiveTelemetryProperties(PluginManager pluginManager)

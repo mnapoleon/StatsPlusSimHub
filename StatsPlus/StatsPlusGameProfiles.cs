@@ -27,6 +27,7 @@ internal interface IStatsPlusGameProfile
     string DisplayName { get; }
     bool Matches(string gameName);
     bool IsRecordingEnabled(PluginSettings settings);
+    bool UsesCapturedSectorsAsLapBoundaryEvidence { get; }
     string GetTrackDisplayName(string rawTrackNameWithConfig, StatsPlusTrackDisplayContext context);
     CircuitDisplayParts GetCircuitDisplayParts(string trackDisplayName);
     void InferSectorLayout(double lapTime, ref double sector1, ref double sector2, ref double sector3);
@@ -83,6 +84,7 @@ internal abstract class StatsPlusGameProfileBase : IStatsPlusGameProfile
     public string DisplayName { get; }
     public bool Matches(string gameName) => _normalizedAliases.Contains(StatsPlusGameName.Normalize(gameName));
     public abstract bool IsRecordingEnabled(PluginSettings settings);
+    public virtual bool UsesCapturedSectorsAsLapBoundaryEvidence => false;
     public virtual string GetTrackDisplayName(string rawTrackNameWithConfig, StatsPlusTrackDisplayContext context) => rawTrackNameWithConfig ?? string.Empty;
     public virtual CircuitDisplayParts GetCircuitDisplayParts(string trackDisplayName) => SplitCircuitDisplay(trackDisplayName, "-");
 
@@ -183,7 +185,29 @@ internal static class StatsPlusGameName
     }
 }
 
-internal sealed class AssettoCorsaProfile : StatsPlusGameProfileBase
+internal abstract class AssettoFamilyStatsPlusGameProfileBase : StatsPlusGameProfileBase
+{
+    protected AssettoFamilyStatsPlusGameProfileBase(
+        string settingsKey,
+        string displayName,
+        params string[] aliases)
+        : base(settingsKey, displayName, aliases)
+    {
+    }
+
+    public override bool UsesCapturedSectorsAsLapBoundaryEvidence => true;
+
+    public override void InferSectorLayout(
+        double lapTime,
+        ref double sector1,
+        ref double sector2,
+        ref double sector3)
+    {
+        InferAssettoFamilySectorLayout(lapTime, ref sector1, ref sector2, ref sector3);
+    }
+}
+
+internal sealed class AssettoCorsaProfile : AssettoFamilyStatsPlusGameProfileBase
 {
     public AssettoCorsaProfile() : base("assettocorsa", "Assetto Corsa", "AssettoCorsa", "Assetto Corsa") { }
     public override bool IsRecordingEnabled(PluginSettings settings) => settings?.RecordAssettoCorsa == true;
@@ -194,18 +218,16 @@ internal sealed class AssettoCorsaProfile : StatsPlusGameProfileBase
             : rawTrackNameWithConfig ?? string.Empty;
     }
     public override CircuitDisplayParts GetCircuitDisplayParts(string trackDisplayName) => SameCircuitAndLayoutDisplay(trackDisplayName);
-    public override void InferSectorLayout(double lapTime, ref double sector1, ref double sector2, ref double sector3) => InferAssettoFamilySectorLayout(lapTime, ref sector1, ref sector2, ref sector3);
 }
 
-internal sealed class AssettoCorsaCompetizioneProfile : StatsPlusGameProfileBase
+internal sealed class AssettoCorsaCompetizioneProfile : AssettoFamilyStatsPlusGameProfileBase
 {
     public AssettoCorsaCompetizioneProfile() : base("assettocorsacompetizione", "Assetto Corsa Competizione", "AssettoCorsaCompetizione", "Assetto Corsa Competizione") { }
     public override bool IsRecordingEnabled(PluginSettings settings) => settings?.RecordAssettoCorsaCompetizione == true;
     public override CircuitDisplayParts GetCircuitDisplayParts(string trackDisplayName) => SameCircuitAndLayoutDisplay(trackDisplayName);
-    public override void InferSectorLayout(double lapTime, ref double sector1, ref double sector2, ref double sector3) => InferAssettoFamilySectorLayout(lapTime, ref sector1, ref sector2, ref sector3);
 }
 
-internal sealed class AssettoCorsaEvoProfile : StatsPlusGameProfileBase
+internal sealed class AssettoCorsaEvoProfile : AssettoFamilyStatsPlusGameProfileBase
 {
     public AssettoCorsaEvoProfile() : base("assettocorsaevo", "Assetto Corsa EVO", "AssettoCorsaEvo", "Assetto Corsa EVO") { }
     public override bool IsRecordingEnabled(PluginSettings settings) => settings?.RecordAssettoCorsaEvo == true;
@@ -215,7 +237,6 @@ internal sealed class AssettoCorsaEvoProfile : StatsPlusGameProfileBase
             ? mappedName
             : rawTrackNameWithConfig ?? string.Empty;
     }
-    public override void InferSectorLayout(double lapTime, ref double sector1, ref double sector2, ref double sector3) => InferAssettoFamilySectorLayout(lapTime, ref sector1, ref sector2, ref sector3);
 }
 
 internal sealed class Automobilista2Profile : StatsPlusGameProfileBase

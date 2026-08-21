@@ -107,5 +107,18 @@ namespace StatsPlus.Tests
             Assert.AreEqual(20.315, sector2, 0.0001);
             Assert.AreEqual(0.0, sector3, 0.0001);
         }
+
+        [TestMethod]
+        public void LapBoundaryEvidence_UsesCapturedSectorsOnlyForAssettoFamily()
+        {
+            StatsPlusGameProfileRegistry registry = StatsPlusGameProfileRegistry.CreateDefault();
+
+            Assert.IsTrue(registry.Resolve("AssettoCorsa").UsesCapturedSectorsAsLapBoundaryEvidence);
+            Assert.IsTrue(registry.Resolve("Assetto Corsa Competizione").UsesCapturedSectorsAsLapBoundaryEvidence);
+            Assert.IsTrue(registry.Resolve("Assetto Corsa EVO").UsesCapturedSectorsAsLapBoundaryEvidence);
+            Assert.IsFalse(registry.Resolve("Automobilista2").UsesCapturedSectorsAsLapBoundaryEvidence);
+            Assert.IsFalse(registry.Resolve("LMU").UsesCapturedSectorsAsLapBoundaryEvidence);
+            Assert.IsFalse(registry.Resolve("UnknownGame").UsesCapturedSectorsAsLapBoundaryEvidence);
+        }
     }
 }
