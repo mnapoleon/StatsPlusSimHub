@@ -26,17 +26,6 @@ namespace StatsPlus
         private const string LiteDbDataFileName = "StatsPlus.laps.ldb";
         private const string DiagnosticLogFileName = "StatsPlus.diagnostics.log";
         private const string Version = "0.2.0";
-        private static readonly KeyValuePair<string, string>[] DefaultGameDebugLoggingEntries =
-        {
-            new KeyValuePair<string, string>("assettocorsa", "Assetto Corsa"),
-            new KeyValuePair<string, string>("assettocorsacompetizione", "Assetto Corsa Competizione"),
-            new KeyValuePair<string, string>("assettocorsaevo", "Assetto Corsa EVO"),
-            new KeyValuePair<string, string>("automobilista2", "Automobilista 2"),
-            new KeyValuePair<string, string>("iracing", "iRacing"),
-            new KeyValuePair<string, string>("lmu", "Le Mans Ultimate"),
-            new KeyValuePair<string, string>("rfactor2", "rFactor 2"),
-            new KeyValuePair<string, string>("raceroomracingexperience", "RaceRoom Racing Experience")
-        };
 
         private bool _hasLoggedDataError;
         private string _settingsPath = string.Empty;
@@ -1398,11 +1387,11 @@ namespace StatsPlus
 
             RemoveUnsupportedGameDebugLoggingSettings();
 
-            foreach (KeyValuePair<string, string> entry in DefaultGameDebugLoggingEntries)
+            foreach (IStatsPlusGameProfile profile in _gameProfiles.SupportedProfiles)
             {
-                if (!Settings.GameDebugLogging.ContainsKey(entry.Key))
+                if (!Settings.GameDebugLogging.ContainsKey(profile.SettingsKey))
                 {
-                    Settings.GameDebugLogging[entry.Key] = false;
+                    Settings.GameDebugLogging[profile.SettingsKey] = false;
                 }
             }
         }
@@ -1431,33 +1420,17 @@ namespace StatsPlus
 
         private void RefreshGameDebugLoggingOptions()
         {
-            List<KeyValuePair<string, string>> entries = new List<KeyValuePair<string, string>>();
-            foreach (KeyValuePair<string, string> entry in DefaultGameDebugLoggingEntries)
-            {
-                entries.Add(entry);
-            }
-
-            if (Settings.GameDebugLogging != null)
-            {
-                foreach (string settingsKey in Settings.GameDebugLogging.Keys.OrderBy(GetDebugLoggingDisplayName))
-                {
-                    if (entries.Any(entry => string.Equals(entry.Key, settingsKey, StringComparison.Ordinal)) ||
-                        !IsSupportedDebugLoggingSettingsKey(settingsKey))
-                    {
-                        continue;
-                    }
-
-                    entries.Add(new KeyValuePair<string, string>(settingsKey, GetDebugLoggingDisplayName(settingsKey)));
-                }
-            }
-
             GameDebugLoggingOptions.Clear();
-            foreach (KeyValuePair<string, string> entry in entries.OrderBy(item => item.Value))
+            foreach (IStatsPlusGameProfile profile in _gameProfiles.SupportedProfiles.OrderBy(item => item.DisplayName))
             {
                 bool isEnabled = Settings.GameDebugLogging != null &&
-                    Settings.GameDebugLogging.TryGetValue(entry.Key, out bool configuredEnabled) &&
+                    Settings.GameDebugLogging.TryGetValue(profile.SettingsKey, out bool configuredEnabled) &&
                     configuredEnabled;
-                GameDebugLoggingOptions.Add(new GameDebugLoggingOption(entry.Key, entry.Value, isEnabled, UpdateGameDebugLoggingSetting));
+                GameDebugLoggingOptions.Add(new GameDebugLoggingOption(
+                    profile.SettingsKey,
+                    profile.DisplayName,
+                    isEnabled,
+                    UpdateGameDebugLoggingSetting));
             }
         }
 
@@ -1496,14 +1469,6 @@ namespace StatsPlus
         private string GetDebugLoggingSettingsKey(string gameName)
         {
             return _gameProfiles.Resolve(gameName).SettingsKey;
-        }
-
-        private string GetDebugLoggingDisplayName(string settingsKey)
-        {
-            IStatsPlusGameProfile profile = _gameProfiles.Resolve(settingsKey);
-            return string.IsNullOrWhiteSpace(profile.DisplayName)
-                ? settingsKey ?? string.Empty
-                : profile.DisplayName;
         }
 
         private bool IsSupportedDebugLoggingSettingsKey(string settingsKey)

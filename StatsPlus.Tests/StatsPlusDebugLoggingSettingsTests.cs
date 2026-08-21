@@ -88,6 +88,25 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void RefreshGameDebugLoggingOptions_MatchesSupportedProfiles()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            StatsPlusGameProfileRegistry registry = StatsPlusGameProfileRegistry.CreateDefault();
+            Invoke(plugin, "EnsureDefaultGameDebugLoggingSettings");
+            Invoke(plugin, "RefreshGameDebugLoggingOptions");
+
+            string[] expectedKeys = registry.SupportedProfiles
+                .OrderBy(profile => profile.DisplayName)
+                .Select(profile => profile.SettingsKey)
+                .ToArray();
+            string[] actualKeys = plugin.GameDebugLoggingOptions
+                .Select(option => option.SettingsKey)
+                .ToArray();
+
+            CollectionAssert.AreEqual(expectedKeys, actualKeys);
+        }
+
+        [TestMethod]
         public void GameDebugLoggingOption_UpdateChangesSettingsDictionary()
         {
             StatsPlusPlugin plugin = new StatsPlusPlugin();

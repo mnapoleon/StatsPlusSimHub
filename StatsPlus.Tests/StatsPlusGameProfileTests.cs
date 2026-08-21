@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Linq;
 
 namespace StatsPlus.Tests
 {
@@ -106,6 +107,20 @@ namespace StatsPlus.Tests
             Assert.AreEqual(28.5, sector1, 0.0001);
             Assert.AreEqual(20.315, sector2, 0.0001);
             Assert.AreEqual(0.0, sector3, 0.0001);
+        }
+
+        [TestMethod]
+        public void SupportedProfiles_HaveUniqueCanonicalSettingsKeysAndDisplayNames()
+        {
+            StatsPlusGameProfileRegistry registry = StatsPlusGameProfileRegistry.CreateDefault();
+            IStatsPlusGameProfile[] profiles = registry.SupportedProfiles.ToArray();
+
+            Assert.AreEqual(8, profiles.Length);
+            Assert.IsTrue(profiles.All(profile => !string.IsNullOrWhiteSpace(profile.SettingsKey)));
+            Assert.IsTrue(profiles.All(profile => !string.IsNullOrWhiteSpace(profile.DisplayName)));
+            Assert.AreEqual(
+                profiles.Length,
+                profiles.Select(profile => profile.SettingsKey).Distinct().Count());
         }
 
         [TestMethod]
