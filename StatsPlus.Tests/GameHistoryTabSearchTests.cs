@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -46,6 +47,39 @@ namespace StatsPlus.Tests
 
             tab.SelectedSearchField = HistorySearchField.Car;
             CollectionAssert.AreEqual(new[] { summary }, tab.FilteredTracks.ToArray());
+        }
+
+        [TestMethod]
+        public void SelectedSearchField_LayoutDoesNotMatchCarOrCircuitDecoys()
+        {
+            StoredTrackSummary layoutMatch = Summary("Porsche 911", "Monza", "Historic");
+            StoredTrackSummary carAndCircuitDecoy = Summary("Historic racer", "Historic circuit", "Grand Prix");
+            GameHistoryTab tab = Tab(layoutMatch, carAndCircuitDecoy);
+
+            tab.SelectedSearchField = HistorySearchField.Layout;
+            tab.SearchText = "Historic";
+
+            CollectionAssert.AreEqual(new[] { layoutMatch }, tab.FilteredTracks.ToArray());
+        }
+
+        [TestMethod]
+        public void SearchText_WhenRetainedSummaryStillMatches_DoesNotResetOrRemoveIt()
+        {
+            StoredTrackSummary retainedSummary = Summary("BMW M4", "Nurburgring", "Nordschleife");
+            StoredTrackSummary nonMatchingSummary = Summary("Porsche 911", "Monza", "Grand Prix");
+            GameHistoryTab tab = Tab(retainedSummary, nonMatchingSummary);
+            bool retainedSummaryWasRemovedOrCollectionReset = false;
+
+            tab.FilteredTracks.CollectionChanged += (sender, args) =>
+            {
+                retainedSummaryWasRemovedOrCollectionReset |= args.Action == NotifyCollectionChangedAction.Reset ||
+                    (args.Action == NotifyCollectionChangedAction.Remove && args.OldItems.Contains(retainedSummary));
+            };
+
+            tab.SearchText = "Nord";
+
+            CollectionAssert.AreEqual(new[] { retainedSummary }, tab.FilteredTracks.ToArray());
+            Assert.IsFalse(retainedSummaryWasRemovedOrCollectionReset);
         }
 
         [TestMethod]

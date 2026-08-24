@@ -174,14 +174,45 @@ namespace StatsPlus
                 .Where(summary => HistorySummaryMatcher.Matches(summary, _searchText, _selectedSearchField))
                 .ToList();
 
-            FilteredTracks.Clear();
-            foreach (StoredTrackSummary summary in matches)
+            for (int index = 0; index < matches.Count; index++)
             {
-                FilteredTracks.Add(summary);
+                StoredTrackSummary match = matches[index];
+                if (index < FilteredTracks.Count && ReferenceEquals(FilteredTracks[index], match))
+                {
+                    continue;
+                }
+
+                int existingIndex = IndexOfReference(match);
+                if (existingIndex >= 0)
+                {
+                    FilteredTracks.Move(existingIndex, index);
+                }
+                else
+                {
+                    FilteredTracks.Insert(index, match);
+                }
+            }
+
+            while (FilteredTracks.Count > matches.Count)
+            {
+                FilteredTracks.RemoveAt(FilteredTracks.Count - 1);
             }
 
             OnPropertyChanged(nameof(HasNoMatchingHistory));
             FilterChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private int IndexOfReference(StoredTrackSummary summary)
+        {
+            for (int index = 0; index < FilteredTracks.Count; index++)
+            {
+                if (ReferenceEquals(FilteredTracks[index], summary))
+                {
+                    return index;
+                }
+            }
+
+            return -1;
         }
 
         private void OnPropertyChanged([CallerMemberName] string propertyName = null)
