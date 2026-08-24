@@ -1,0 +1,200 @@
+name: Beta Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semantic version bump type
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: read
+
+jobs:
+  build-beta-package:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Resolve beta metadata
+        id: beta_meta
+        shell: pwsh
+        run: |
+          $bump = '${{ inputs.bump }}'.Trim().ToLowerInvariant()
+          if ($bump -notin @('patch', 'minor', 'major')) {
+            throw "Unsupported bump type: $bump"
+          }
+
+          "bump=$bump" >> $env:GITHUB_OUTPUT
+          "target_ref=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+          "target_sha=${{ github.sha }}" >> $env:GITHUB_OUTPUT
+
+      - name: Compute beta base version
+        id: version
+        shell: pwsh
+        run: |
+          $bump = '${{ steps.beta_meta.outputs.bump }}'
+          $targetSha = '${{ steps.beta_meta.outputs.target_sha }}'
+          $tagNames = git tag --list | Where-Object { $_ -match '^v(\d+)\.(\d+)\.(\d+)$' }
+
+          $versions = foreach ($tag in $tagNames) {
+            if ($tag -match '^v(\d+)\.(\d+)\.(\d+)$') {
+              [pscustomobject]@{
+                Tag = $tag
+                Major = [int]$matches[1]
+                Minor = [int]$matches[2]
+                Patch = [int]$matches[3]
+              }
+            }
+          }
+
+          $targetTagNames = git tag --points-at $targetSha | Where-Object { $_ -match '^v(\d+)\.(\d+)\.(\d+)$' }
+          $targetVersions = foreach ($tag in $targetTagNames) {
+            if ($tag -match '^v(\d+)\.(\d+)\.(\d+)$') {
+              [pscustomobject]@{
+                Tag = $tag
+                Major = [int]$matches[1]
+                Minor = [int]$matches[2]
+                Patch = [int]$matches[3]
+              }
+            }
+          }
+
+          if ($targetVersions) {
+            $current = $targetVersions |
+              Sort-Object Major, Minor, Patch |
+              Select-Object -Last 1
+            $nextTag = $current.Tag
+            $nextVersion = "$($current.Major).$($current.Minor).$($current.Patch)"
+          } else {
+            if ($versions) {
+              $latest = $versions |
+                Sort-Object Major, Minor, Patch |
+                Select-Object -Last 1
+              $major = $latest.Major
+              $minor = $latest.Minor
+              $patch = $latest.Patch
+            } else {
+              $major = 0
+              $minor = 0
+              $patch = 0
+            }
+
+            switch ($bump) {
+              'major' {
+                $major += 1
+                $minor = 0
+                $patch = 0
+              }
+              'minor' {
+                $minor += 1
+                $patch = 0
+              }
+              'patch' {
+                $patch += 1
+              }
+              default {
+                throw "Unsupported bump type: $bump"
+              }
+            }
+
+            $nextTag = "v$major.$minor.$patch"
+            $nextVersion = "$major.$minor.$patch"
+          }
+
+          $betaLabel = "$nextTag-beta.${{ github.run_number }}"
+
+          "tag=$nextTag" >> $env:GITHUB_OUTPUT
+          "version=$nextVersion" >> $env:GITHUB_OUTPUT
+          "beta_label=$betaLabel" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore .\StatsPlus.sln /p:UseSimHubSdkStubs=true
+
+      - name: Build plugin
+        shell: pwsh
+        run: dotnet build .\StatsPlus\StatsPlus.csproj --configuration Release --no-restore /p:UseSimHubSdkStubs=true /p:SimHubInstallPath=C:\does-not-exist /p:Version=${{ steps.version.outputs.version }} /p:InformationalVersion=${{ steps.version.outputs.beta_label }}
+
+      - name: Build beta archive
+        id: archive
+        shell: pwsh
+        run: |
+          $betaLabel = '${{ steps.version.outputs.beta_label }}'
+          $buildOutput = '.\StatsPlus\bin\Release\net48'
+          $artifactDir = Join-Path $env:RUNNER_TEMP 'statsplus-beta'
+          $stageDir = Join-Path $artifactDir 'payload'
+          $assetName = "StatsPlus-$betaLabel.zip"
+          $assetPath = Join-Path $artifactDir $assetName
+          $hashName = "$assetName.sha256"
+          $hashPath = Join-Path $artifactDir $hashName
+
+          $requiredFiles = @(
+            'StatsPlus.dll'
+          )
+
+          foreach ($requiredFile in $requiredFiles) {
+            $requiredPath = Join-Path $buildOutput $requiredFile
+            if (-not (Test-Path -LiteralPath $requiredPath)) {
+              throw "Release output is missing required archive file: $requiredPath"
+            }
+          }
+
+          Remove-Item -LiteralPath $artifactDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
+          foreach ($requiredFile in $requiredFiles) {
+            $sourcePath = Join-Path $buildOutput $requiredFile
+            $destinationPath = Join-Path $stageDir $requiredFile
+            $destinationDir = Split-Path -Path $destinationPath -Parent
+
+            if (-not (Test-Path -LiteralPath $destinationDir)) {
+              New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+            }
+
+            Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
+          }
+
+          Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $assetPath -Force
+
+          if (-not (Test-Path -LiteralPath $assetPath)) {
+            throw "Beta archive was not created at $assetPath"
+          }
+
+          $hash = (Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $assetName" | Set-Content -Path $hashPath -Encoding ascii
+
+          if (-not (Test-Path -LiteralPath $hashPath)) {
+            throw "Beta checksum file was not created at $hashPath"
+          }
+
+          "asset_name=$assetName" >> $env:GITHUB_OUTPUT
+          "asset_path=$assetPath" >> $env:GITHUB_OUTPUT
+          "hash_name=$hashName" >> $env:GITHUB_OUTPUT
+          "hash_path=$hashPath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload beta artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: statsplus-beta-${{ steps.version.outputs.beta_label }}
+          path: |
+            ${{ steps.archive.outputs.asset_path }}
+            ${{ steps.archive.outputs.hash_path }}
+          if-no-files-found: error
+          compression-level: 0

@@ -1,53 +1,56 @@
 name: Release
 
 on:
-  pull_request:
-    types:
-      - closed
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semantic version bump type
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
-  pull-requests: read
 
 jobs:
   tag-and-release:
-    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
     runs-on: windows-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ github.ref }}
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
         with:
           dotnet-version: 9.0.x
 
-      - name: Resolve merged PR and bump type
-        id: pr
+      - name: Resolve release metadata
+        id: release_meta
         shell: pwsh
         run: |
-          $title = '${{ github.event.pull_request.title }}'.Trim()
-          $match = [regex]::Match($title, '^(major|minor|patch):\s+(.+)$', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-
-          if (-not $match.Success) {
-            throw "Merged PR title '$title' does not match the required semver prefix format."
+          $bump = '${{ inputs.bump }}'.Trim().ToLowerInvariant()
+          if ($bump -notin @('patch', 'minor', 'major')) {
+            throw "Unsupported bump type: $bump"
           }
 
-          "should_release=true" >> $env:GITHUB_OUTPUT
-          "pull_number=${{ github.event.pull_request.number }}" >> $env:GITHUB_OUTPUT
-          "pull_title=$title" >> $env:GITHUB_OUTPUT
-          "bump=$($match.Groups[1].Value.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "bump=$bump" >> $env:GITHUB_OUTPUT
+          "target_ref=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+          "target_sha=${{ github.sha }}" >> $env:GITHUB_OUTPUT
 
       - name: Compute next semantic version
         id: version
-        if: steps.pr.outputs.should_release == 'true'
         shell: pwsh
         run: |
-          $bump = '${{ steps.pr.outputs.bump }}'
+          $bump = '${{ steps.release_meta.outputs.bump }}'
+          $targetSha = '${{ steps.release_meta.outputs.target_sha }}'
           $tagNames = git tag --list | Where-Object { $_ -match '^v(\d+)\.(\d+)\.(\d+)$' }
 
           $versions = foreach ($tag in $tagNames) {
@@ -61,60 +64,88 @@ jobs:
             }
           }
 
-          if ($versions) {
-            $latest = $versions |
+          $targetTagNames = git tag --points-at $targetSha | Where-Object { $_ -match '^v(\d+)\.(\d+)\.(\d+)$' }
+          $targetVersions = foreach ($tag in $targetTagNames) {
+            if ($tag -match '^v(\d+)\.(\d+)\.(\d+)$') {
+              [pscustomobject]@{
+                Tag = $tag
+                Major = [int]$matches[1]
+                Minor = [int]$matches[2]
+                Patch = [int]$matches[3]
+              }
+            }
+          }
+
+          if ($targetVersions) {
+            $current = $targetVersions |
               Sort-Object Major, Minor, Patch |
               Select-Object -Last 1
-            $major = $latest.Major
-            $minor = $latest.Minor
-            $patch = $latest.Patch
-            $previousTag = $latest.Tag
-          } else {
-            $major = 0
-            $minor = 0
-            $patch = 0
-            $previousTag = ''
-          }
+            $nextTag = $current.Tag
+            $nextVersion = "$($current.Major).$($current.Minor).$($current.Patch)"
 
-          switch ($bump) {
-            'major' {
-              $major += 1
+            $previous = $versions |
+              Where-Object { $_.Tag -ne $nextTag } |
+              Sort-Object Major, Minor, Patch |
+              Select-Object -Last 1
+            $previousTag = if ($previous) { $previous.Tag } else { '' }
+          } else {
+            if ($versions) {
+              $latest = $versions |
+                Sort-Object Major, Minor, Patch |
+                Select-Object -Last 1
+              $major = $latest.Major
+              $minor = $latest.Minor
+              $patch = $latest.Patch
+              $previousTag = $latest.Tag
+            } else {
+              $major = 0
               $minor = 0
               $patch = 0
+              $previousTag = ''
             }
-            'minor' {
-              $minor += 1
-              $patch = 0
+
+            switch ($bump) {
+              'major' {
+                $major += 1
+                $minor = 0
+                $patch = 0
+              }
+              'minor' {
+                $minor += 1
+                $patch = 0
+              }
+              'patch' {
+                $patch += 1
+              }
+              default {
+                throw "Unsupported bump type: $bump"
+              }
             }
-            'patch' {
-              $patch += 1
-            }
-            default {
-              throw "Unsupported bump type: $bump"
-            }
+
+            $nextTag = "v$major.$minor.$patch"
+            $nextVersion = "$major.$minor.$patch"
           }
 
-          $nextTag = "v$major.$minor.$patch"
           "tag=$nextTag" >> $env:GITHUB_OUTPUT
+          "version=$nextVersion" >> $env:GITHUB_OUTPUT
           "previous_tag=$previousTag" >> $env:GITHUB_OUTPUT
 
       - name: Build release notes
         id: notes
-        if: steps.pr.outputs.should_release == 'true'
         shell: pwsh
         run: |
           $previousTag = '${{ steps.version.outputs.previous_tag }}'
           $nextTag = '${{ steps.version.outputs.tag }}'
-          $pullNumber = '${{ steps.pr.outputs.pull_number }}'
-          $pullTitle = '${{ steps.pr.outputs.pull_title }}'
-          $bump = '${{ steps.pr.outputs.bump }}'
+          $targetRef = '${{ steps.release_meta.outputs.target_ref }}'
+          $targetSha = '${{ steps.release_meta.outputs.target_sha }}'
+          $bump = '${{ steps.release_meta.outputs.bump }}'
           $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
 
           if ([string]::IsNullOrWhiteSpace($previousTag)) {
-            $range = (git rev-list --max-parents=0 HEAD | Select-Object -First 1) + '..' + '${{ github.event.pull_request.merge_commit_sha }}'
+            $range = (git rev-list --max-parents=0 HEAD | Select-Object -First 1) + '..' + $targetSha
             $previousLabel = 'Initial release'
           } else {
-            $range = "$previousTag..${{ github.event.pull_request.merge_commit_sha }}"
+            $range = "$previousTag..$targetSha"
             $previousLabel = $previousTag
           }
 
@@ -128,8 +159,15 @@ jobs:
             ""
             "## Release Summary"
             "- Semver bump: $bump"
-            "- Released from PR #$($pullNumber): $pullTitle"
+            "- Released from ref: $targetRef"
+            "- Target commit: $targetSha"
             "- Previous release: $previousLabel"
+            "- Distribution format: ZIP payload"
+            ""
+            "## Installation"
+            "1. Verify the published SHA-256 checksum before extracting the ZIP."
+            "2. Extract the ZIP into your SimHub installation folder."
+            "3. Restart SimHub after copying the files."
             ""
             "## Changes Since Last Release"
             $commitLines
@@ -138,86 +176,129 @@ jobs:
           "notes_path=$notesPath" >> $env:GITHUB_OUTPUT
 
       - name: Restore
-        if: steps.pr.outputs.should_release == 'true'
         shell: pwsh
         run: dotnet restore .\StatsPlus.sln /p:UseSimHubSdkStubs=true
 
       - name: Build plugin
-        if: steps.pr.outputs.should_release == 'true'
         shell: pwsh
-        run: dotnet build .\StatsPlus\StatsPlus.csproj --configuration Release --no-restore /p:UseSimHubSdkStubs=true /p:SimHubInstallPath=C:\does-not-exist
+        run: dotnet build .\StatsPlus\StatsPlus.csproj --configuration Release --no-restore /p:UseSimHubSdkStubs=true /p:SimHubInstallPath=C:\does-not-exist /p:Version=${{ steps.version.outputs.version }} /p:InformationalVersion=${{ steps.version.outputs.version }}
 
-      - name: Package release asset
-        id: package
-        if: steps.pr.outputs.should_release == 'true'
+      - name: Build release archive
+        id: archive
         shell: pwsh
         run: |
           $tag = '${{ steps.version.outputs.tag }}'
           $buildOutput = '.\StatsPlus\bin\Release\net48'
-          $stagingDir = Join-Path $env:RUNNER_TEMP 'statsplus-release'
+          $artifactDir = Join-Path $env:RUNNER_TEMP 'statsplus-release'
+          $stageDir = Join-Path $artifactDir 'payload'
           $assetName = "StatsPlus-$tag.zip"
-          $assetPath = Join-Path $env:RUNNER_TEMP $assetName
+          $assetPath = Join-Path $artifactDir $assetName
+          $hashName = "$assetName.sha256"
+          $hashPath = Join-Path $artifactDir $hashName
 
-          Remove-Item -LiteralPath $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $stagingDir | Out-Null
+          $requiredFiles = @(
+            'StatsPlus.dll'
+          )
 
-          Get-ChildItem -Path $buildOutput -Recurse -File |
-            Where-Object { $_.FullName -notmatch '\\ref\\' } |
-            ForEach-Object {
-              $relativePath = $_.FullName.Substring((Resolve-Path $buildOutput).Path.Length).TrimStart('\')
-              $destinationPath = Join-Path $stagingDir $relativePath
-              $destinationDirectory = Split-Path -Parent $destinationPath
-              if (-not (Test-Path $destinationDirectory)) {
-                New-Item -ItemType Directory -Path $destinationDirectory | Out-Null
-              }
-              Copy-Item -LiteralPath $_.FullName -Destination $destinationPath
+          foreach ($requiredFile in $requiredFiles) {
+            $requiredPath = Join-Path $buildOutput $requiredFile
+            if (-not (Test-Path -LiteralPath $requiredPath)) {
+              throw "Release output is missing required archive file: $requiredPath"
             }
-
-          Set-Content -Path (Join-Path $stagingDir 'README.txt') -Value @(
-            'StatsPlus SimHub Plugin'
-            ''
-            'Install:'
-            '1. Close SimHub.'
-            '2. Extract the zip.'
-            '3. Copy the extracted files into your SimHub install directory, preserving folders.'
-            '4. Start SimHub.'
-          ) -Encoding UTF8
-
-          if (Test-Path $assetPath) {
-            Remove-Item -LiteralPath $assetPath -Force
           }
 
-          Compress-Archive -Path (Join-Path $stagingDir '*') -DestinationPath $assetPath
+          Remove-Item -LiteralPath $artifactDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
+          foreach ($requiredFile in $requiredFiles) {
+            $sourcePath = Join-Path $buildOutput $requiredFile
+            $destinationPath = Join-Path $stageDir $requiredFile
+            $destinationDir = Split-Path -Path $destinationPath -Parent
+
+            if (-not (Test-Path -LiteralPath $destinationDir)) {
+              New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+            }
+
+            Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
+          }
+
+          Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $assetPath -Force
+
+          if (-not (Test-Path -LiteralPath $assetPath)) {
+            throw "Release archive was not created at $assetPath"
+          }
+
+          $hash = (Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $assetName" | Set-Content -Path $hashPath -Encoding ascii
+
+          if (-not (Test-Path -LiteralPath $hashPath)) {
+            throw "Release checksum file was not created at $hashPath"
+          }
+
           "asset_name=$assetName" >> $env:GITHUB_OUTPUT
           "asset_path=$assetPath" >> $env:GITHUB_OUTPUT
+          "hash_name=$hashName" >> $env:GITHUB_OUTPUT
+          "hash_path=$hashPath" >> $env:GITHUB_OUTPUT
 
       - name: Create tag and GitHub release
         id: release
-        if: steps.pr.outputs.should_release == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         env:
           NEXT_TAG: ${{ steps.version.outputs.tag }}
           RELEASE_NOTES_PATH: ${{ steps.notes.outputs.notes_path }}
+          TARGET_SHA: ${{ steps.release_meta.outputs.target_sha }}
         with:
           script: |
             const fs = require("fs");
             const tag = process.env.NEXT_TAG;
             const releaseBody = fs.readFileSync(process.env.RELEASE_NOTES_PATH, "utf8");
-
+            const targetSha = process.env.TARGET_SHA;
+            let tagExists = false;
             try {
-              await github.rest.git.getRef({
+              const existingTagRef = await github.rest.git.getRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 ref: `tags/${tag}`,
               });
+              if (existingTagRef.data.object.sha !== targetSha) {
+                throw new Error(`Tag ${tag} points to ${existingTagRef.data.object.sha}, expected ${targetSha}. Refusing to reuse an existing tag for a different commit.`);
+              }
+              tagExists = true;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
 
-              core.notice(`Tag ${tag} already exists; skipping tag and release creation.`);
+            if (!tagExists) {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tag}`,
+                sha: "${{ steps.release_meta.outputs.target_sha }}",
+              });
+              core.notice(`Created tag ${tag}.`);
+            } else {
+              core.notice(`Tag ${tag} already exists; reusing it.`);
+            }
+
+            try {
               const existingRelease = await github.rest.repos.getReleaseByTag({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 tag,
               });
-              core.setOutput("release_id", String(existingRelease.data.id));
+              const updatedRelease = await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: existingRelease.data.id,
+                tag_name: tag,
+                target_commitish: "${{ steps.release_meta.outputs.target_sha }}",
+                name: tag,
+                body: releaseBody,
+              });
+              core.setOutput("release_id", String(updatedRelease.data.id));
+              core.notice(`Updated existing release for ${tag}.`);
               return;
             } catch (error) {
               if (error.status !== 404) {
@@ -225,61 +306,73 @@ jobs:
               }
             }
 
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `refs/tags/${tag}`,
-              sha: "${{ github.event.pull_request.merge_commit_sha }}",
-            });
-
             const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: tag,
-              target_commitish: "${{ github.event.pull_request.merge_commit_sha }}",
+              target_commitish: "${{ steps.release_meta.outputs.target_sha }}",
               name: tag,
               body: releaseBody,
             });
 
             core.setOutput("release_id", String(release.data.id));
-            core.notice(`Created ${tag} and published a GitHub release.`);
+            core.notice(`Created release for ${tag}.`);
 
-      - name: Upload plugin asset
-        if: steps.pr.outputs.should_release == 'true'
-        uses: actions/github-script@v7
+      - name: Upload release assets
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         env:
           RELEASE_ID: ${{ steps.release.outputs.release_id }}
-          ASSET_NAME: ${{ steps.package.outputs.asset_name }}
-          ASSET_PATH: ${{ steps.package.outputs.asset_path }}
+          ASSET_NAME: ${{ steps.archive.outputs.asset_name }}
+          ASSET_PATH: ${{ steps.archive.outputs.asset_path }}
+          HASH_NAME: ${{ steps.archive.outputs.hash_name }}
+          HASH_PATH: ${{ steps.archive.outputs.hash_path }}
         with:
           script: |
             const fs = require("fs");
             const releaseId = Number(process.env.RELEASE_ID);
             const assetName = process.env.ASSET_NAME;
             const assetPath = process.env.ASSET_PATH;
-            const assetData = fs.readFileSync(assetPath);
+            const hashName = process.env.HASH_NAME;
+            const hashPath = process.env.HASH_PATH;
+            const assetsToUpload = [
+              { name: assetName, path: assetPath },
+              { name: hashName, path: hashPath },
+            ];
+            const managedZipPattern = /^StatsPlus-v.*\.zip$/i;
+            const managedHashPattern = /^StatsPlus-v.*\.zip\.sha256$/i;
 
             const existingAssets = await github.rest.repos.listReleaseAssets({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: releaseId,
+              per_page: 100,
             });
 
-            const existingAsset = existingAssets.data.find(asset => asset.name === assetName);
-            if (existingAsset) {
+            const assetsToDelete = existingAssets.data.filter(existing =>
+              assetsToUpload.some(asset => asset.name === existing.name) ||
+              managedZipPattern.test(existing.name) ||
+              managedHashPattern.test(existing.name)
+            );
+
+            for (const existingAsset of assetsToDelete) {
               await github.rest.repos.deleteReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
+                release_id: releaseId,
                 asset_id: existingAsset.id,
               });
             }
 
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: releaseId,
-              name: assetName,
-              data: assetData,
-            });
+            for (const asset of assetsToUpload) {
+              const assetData = fs.readFileSync(asset.path);
 
-            core.notice(`Uploaded ${assetName} to release ${releaseId}.`);
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: releaseId,
+                name: asset.name,
+                data: assetData,
+              });
+            }
+
+            core.notice(`Uploaded ${assetName} and ${hashName} to release ${releaseId}.`);
