@@ -817,11 +817,19 @@ namespace StatsPlus
                 string selectedGame = SelectedTrackSummary?.GameName;
                 string selectedCar = SelectedTrackSummary?.CarModel;
                 string selectedTrackConfig = SelectedTrackSummary?.TrackNameWithConfig;
+                Dictionary<string, GameHistoryTab> previousTabs = GameHistoryTabs
+                    .ToDictionary(tab => tab.GameName, StringComparer.OrdinalIgnoreCase);
 
                 GameHistoryTabs.Clear();
                 TopLevelTabs.Clear();
                 foreach (GameHistoryTab tab in tabs)
                 {
+                    if (previousTabs.TryGetValue(tab.GameName, out GameHistoryTab previousTab))
+                    {
+                        tab.RestoreSearchState(previousTab.SearchText, previousTab.SelectedSearchField);
+                    }
+
+                    tab.FilterChanged += GameHistoryTab_FilterChanged;
                     GameHistoryTabs.Add(tab);
                     TopLevelTabs.Add(tab);
                 }
@@ -830,8 +838,9 @@ namespace StatsPlus
 
                 SelectedTopLevelTab = ResolveSelectedTopLevelTab(previousSelectedTopLevelTab, tabs, _settingsTab);
 
-                SelectedTrackSummary = summaries.FirstOrDefault(summary =>
-                    string.Equals(summary.GameName, selectedGame, StringComparison.OrdinalIgnoreCase) &&
+                GameHistoryTab selectedSummaryTab = tabs.FirstOrDefault(tab =>
+                    string.Equals(tab.GameName, selectedGame, StringComparison.OrdinalIgnoreCase));
+                SelectedTrackSummary = selectedSummaryTab?.FilteredTracks.FirstOrDefault(summary =>
                     string.Equals(summary.CarModel, selectedCar, StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(summary.TrackNameWithConfig, selectedTrackConfig, StringComparison.OrdinalIgnoreCase));
             }
@@ -1476,6 +1485,25 @@ namespace StatsPlus
             IStatsPlusGameProfile profile = _gameProfiles.Resolve(settingsKey);
             return !string.IsNullOrWhiteSpace(settingsKey) &&
                 string.Equals(profile.SettingsKey, settingsKey, StringComparison.Ordinal);
+        }
+
+        private void GameHistoryTab_FilterChanged(object sender, EventArgs e)
+        {
+            GameHistoryTab tab = sender as GameHistoryTab;
+            if (tab == null || SelectedTrackSummary == null)
+            {
+                return;
+            }
+
+            if (!string.Equals(tab.GameName, SelectedTrackSummary.GameName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (!tab.ContainsVisible(SelectedTrackSummary))
+            {
+                SelectedTrackSummary = null;
+            }
         }
 
         private void LoadSelectedTrackLaps(DateTime? selectedTimestamp = null)

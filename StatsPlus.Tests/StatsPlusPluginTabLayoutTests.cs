@@ -77,6 +77,87 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void GameTabs_KeepIndependentSearchStateAcrossTabSwitches()
+        {
+            SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25,
+                new DateTime(2026, 8, 23, 12, 0, 0, DateTimeKind.Utc));
+            SeedLap("LMU", "Ferrari 499P", "Le Mans", "Le Mans - 24h", 210.5,
+                new DateTime(2026, 8, 23, 13, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            GameHistoryTab iracing = plugin.GameHistoryTabs.Single(tab => tab.GameName == "iRacing");
+            GameHistoryTab lmu = plugin.GameHistoryTabs.Single(tab => tab.GameName == "LMU");
+
+            iracing.RestoreSearchState("maz", HistorySearchField.Car);
+            plugin.SelectedTopLevelTab = lmu;
+            lmu.RestoreSearchState("mans", HistorySearchField.Circuit);
+            plugin.SelectedTopLevelTab = iracing;
+
+            Assert.AreEqual("maz", iracing.SearchText);
+            Assert.AreEqual(HistorySearchField.Car, iracing.SelectedSearchField);
+            Assert.AreEqual("mans", lmu.SearchText);
+            Assert.AreEqual(HistorySearchField.Circuit, lmu.SelectedSearchField);
+        }
+
+        [TestMethod]
+        public void RefreshStoredTrackSummaries_PreservesSearchStateByGameName()
+        {
+            SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25,
+                new DateTime(2026, 8, 23, 12, 0, 0, DateTimeKind.Utc));
+            SeedLap("iRacing", "BMW M4", "Nurburgring", "Nurburgring - Nordschleife", 420.0,
+                new DateTime(2026, 8, 23, 13, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            GameHistoryTab original = plugin.GameHistoryTabs.Single();
+            original.RestoreSearchState("nord", HistorySearchField.Layout);
+
+            plugin.RefreshStoredTrackSummaries();
+
+            GameHistoryTab refreshed = plugin.GameHistoryTabs.Single();
+            Assert.AreNotSame(original, refreshed);
+            Assert.AreEqual("nord", refreshed.SearchText);
+            Assert.AreEqual(HistorySearchField.Layout, refreshed.SelectedSearchField);
+            Assert.AreEqual(1, refreshed.FilteredTracks.Count);
+            Assert.AreEqual("Nurburgring - Nordschleife", refreshed.FilteredTracks[0].TrackNameWithConfig);
+        }
+
+        [TestMethod]
+        public void FilteringOutSelectedSummary_ClearsRecordedLapDetails()
+        {
+            SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25,
+                new DateTime(2026, 8, 23, 12, 0, 0, DateTimeKind.Utc));
+            SeedLap("iRacing", "BMW M4", "Nurburgring", "Nurburgring - Nordschleife", 420.0,
+                new DateTime(2026, 8, 23, 13, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            GameHistoryTab tab = plugin.GameHistoryTabs.Single();
+            plugin.SelectedTrackSummary = tab.Tracks.Single(summary => summary.CarModel == "Mazda MX-5");
+            plugin.SelectedLap = plugin.SelectedTrackLaps.Single();
+
+            tab.SearchText = "BMW";
+
+            Assert.IsNull(plugin.SelectedTrackSummary);
+            Assert.IsNull(plugin.SelectedLap);
+            Assert.AreEqual(0, plugin.SelectedTrackLaps.Count);
+            Assert.AreEqual("Select a track row above to inspect recorded laps.", plugin.SelectedTrackCaption);
+        }
+
+        [TestMethod]
+        public void RefreshStoredTrackSummaries_DoesNotRestoreASelectionHiddenByPreservedFilter()
+        {
+            SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25,
+                new DateTime(2026, 8, 23, 12, 0, 0, DateTimeKind.Utc));
+            SeedLap("iRacing", "BMW M4", "Nurburgring", "Nurburgring - Nordschleife", 420.0,
+                new DateTime(2026, 8, 23, 13, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            GameHistoryTab tab = plugin.GameHistoryTabs.Single();
+            tab.RestoreSearchState("Mazda", HistorySearchField.Car);
+            plugin.SelectedTrackSummary = tab.Tracks.Single(summary => summary.CarModel == "BMW M4");
+
+            plugin.RefreshStoredTrackSummaries();
+
+            Assert.IsNull(plugin.SelectedTrackSummary);
+            Assert.AreEqual(0, plugin.SelectedTrackLaps.Count);
+        }
+
+        [TestMethod]
         public void SelectedTrackSummary_LoadsRecordedLapsForSelectedCombo()
         {
             SeedLap("LMU", "Ferrari 499P", "Le Mans", "Le Mans - 24h", 210.5, new DateTime(2026, 7, 31, 13, 0, 0, DateTimeKind.Utc));

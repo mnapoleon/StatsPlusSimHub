@@ -100,7 +100,37 @@
                                                 Content="Clear all data" />
                                     </StackPanel>
 
-                                    <DataGrid ItemsSource="{Binding Tracks}"
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <ComboBox Grid.Column="0"
+                                                  Width="125"
+                                                  ItemsSource="{Binding SearchFieldOptions}"
+                                                  DisplayMemberPath="Label"
+                                                  SelectedValuePath="Field"
+                                                  SelectedValue="{Binding SelectedSearchField, Mode=TwoWay}" />
+                                        <TextBox Grid.Column="1"
+                                                 MinWidth="220"
+                                                 Margin="8,0"
+                                                 ToolTip="Search car, circuit, or layout"
+                                                 Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Button Grid.Column="2"
+                                                Width="70"
+                                                Click="ClearHistorySearchButton_Click"
+                                                Content="Clear" />
+                                    </Grid>
+
+                                    <TextBlock Margin="0,0,0,8"
+                                               Foreground="#D8D8D8"
+                                               FontStyle="Italic"
+                                               Text="No matching history."
+                                               Visibility="{Binding HasNoMatchingHistory, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                    <DataGrid ItemsSource="{Binding FilteredTracks}"
                                               AutoGenerateColumns="False"
                                               CanUserAddRows="False"
                                               IsReadOnly="True"
