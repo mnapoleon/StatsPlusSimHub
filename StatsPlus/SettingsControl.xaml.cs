@@ -28,6 +28,14 @@ namespace StatsPlus
             _plugin.RefreshStoredTrackSummaries();
         }
 
+        private void ClearHistorySearchButton_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is GameHistoryTab gameTab)
+            {
+                gameTab.ClearSearch();
+            }
+        }
+
         private void ToggleLapValidityButton_Click(object sender, RoutedEventArgs e)
         {
             _plugin.ToggleSelectedLapValidity();

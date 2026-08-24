@@ -18,6 +18,23 @@ namespace StatsPlus.Tests
             Assert.IsFalse(xaml.Contains("Header=\"Variation\" Binding=\"{Binding TrackNameWithConfigDisplay}\""));
         }
 
+        [TestMethod]
+        public void StoredHistoryGrid_HasIncrementalFieldScopedSearchControls()
+        {
+            string xaml = File.ReadAllText(FindSettingsControlXamlPath());
+
+            StringAssert.Contains(xaml, "ItemsSource=\"{Binding SearchFieldOptions}\"");
+            StringAssert.Contains(xaml, "DisplayMemberPath=\"Label\"");
+            StringAssert.Contains(xaml, "SelectedValuePath=\"Field\"");
+            StringAssert.Contains(xaml, "SelectedValue=\"{Binding SelectedSearchField, Mode=TwoWay}\"");
+            StringAssert.Contains(xaml, "Text=\"{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}\"");
+            StringAssert.Contains(xaml, "Click=\"ClearHistorySearchButton_Click\"");
+            StringAssert.Contains(xaml, "ItemsSource=\"{Binding FilteredTracks}\"");
+            StringAssert.Contains(xaml, "Text=\"No matching history.\"");
+            StringAssert.Contains(xaml, "Visibility=\"{Binding HasNoMatchingHistory, Converter={StaticResource BooleanToVisibilityConverter}}\"");
+            Assert.IsFalse(xaml.Contains("ItemsSource=\"{Binding Tracks}\""));
+        }
+
         private static string FindSettingsControlXamlPath()
         {
             DirectoryInfo directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
