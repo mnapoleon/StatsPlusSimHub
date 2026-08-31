@@ -122,6 +122,36 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void RefreshGameOptions_PairsRecordingAndDebugLoggingSettings()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            plugin.Settings.RecordIRacing = false;
+            plugin.Settings.GameDebugLogging["iracing"] = true;
+            Invoke(plugin, "EnsureDefaultGameDebugLoggingSettings");
+            Invoke(plugin, "RefreshGameOptions");
+            object option = FindGameOption(plugin, "iracing");
+
+            Assert.AreEqual("iRacing", GetProperty<string>(option, "DisplayName"));
+            Assert.IsFalse(GetProperty<bool>(option, "IsRecordingEnabled"));
+            Assert.IsTrue(GetProperty<bool>(option, "IsDebugLoggingEnabled"));
+        }
+
+        [TestMethod]
+        public void GameOption_UpdateChangesRecordingAndDebugSettings()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+            Invoke(plugin, "EnsureDefaultGameDebugLoggingSettings");
+            Invoke(plugin, "RefreshGameOptions");
+            object option = FindGameOption(plugin, "iracing");
+
+            SetProperty(option, "IsRecordingEnabled", false);
+            SetProperty(option, "IsDebugLoggingEnabled", true);
+
+            Assert.IsFalse(plugin.Settings.RecordIRacing);
+            Assert.IsTrue(plugin.Settings.GameDebugLogging["iracing"]);
+        }
+
+        [TestMethod]
         public void GetDebugLoggingSettingsKey_NormalizesRaceRoomAliases()
         {
             StatsPlusPlugin plugin = new StatsPlusPlugin();
@@ -167,6 +197,30 @@ namespace StatsPlus.Tests
             typeof(StatsPlusPlugin)
                 .GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(plugin, null);
+        }
+
+        private static object FindGameOption(StatsPlusPlugin plugin, string settingsKey)
+        {
+            PropertyInfo property = typeof(StatsPlusPlugin).GetProperty("GameOptions");
+            Assert.IsNotNull(property, "Expected StatsPlusPlugin.GameOptions to exist.");
+
+            IEnumerable<object> options = ((System.Collections.IEnumerable)property.GetValue(plugin)).Cast<object>();
+            object option = options.Single(entry => GetProperty<string>(entry, "SettingsKey") == settingsKey);
+            return option;
+        }
+
+        private static T GetProperty<T>(object instance, string propertyName)
+        {
+            PropertyInfo property = instance.GetType().GetProperty(propertyName);
+            Assert.IsNotNull(property, $"Expected {instance.GetType().Name}.{propertyName} to exist.");
+            return (T)property.GetValue(instance);
+        }
+
+        private static void SetProperty(object instance, string propertyName, object value)
+        {
+            PropertyInfo property = instance.GetType().GetProperty(propertyName);
+            Assert.IsNotNull(property, $"Expected {instance.GetType().Name}.{propertyName} to exist.");
+            property.SetValue(instance, value);
         }
     }
 }

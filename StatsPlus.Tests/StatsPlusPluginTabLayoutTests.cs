@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SimHub.Plugins;
 
@@ -32,20 +33,22 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
-        public void Init_WithNoHistory_CreatesSettingsOnlyTopLevelTabs()
+        public void Init_WithNoHistory_CreatesHistoryAndSettingsTopLevelTabs()
         {
             StatsPlusPlugin plugin = CreateInitializedPlugin();
 
-            Assert.AreEqual(1, plugin.TopLevelTabs.Count);
-            Assert.IsInstanceOfType(plugin.TopLevelTabs[0], typeof(StatsPlusSettingsTab));
-            Assert.AreEqual("Settings", ((StatsPlusSettingsTab)plugin.TopLevelTabs[0]).Header);
+            CollectionAssert.AreEqual(
+                new[] { "History", "Settings" },
+                TabHeaders(plugin));
+            Assert.IsInstanceOfType(plugin.TopLevelTabs[0], typeof(StatsPlusHistoryTab));
+            Assert.IsInstanceOfType(plugin.TopLevelTabs[1], typeof(StatsPlusSettingsTab));
             Assert.AreSame(plugin.TopLevelTabs[0], plugin.SelectedTopLevelTab);
             Assert.IsNull(plugin.SelectedGameHistoryTab);
             Assert.IsFalse(plugin.HasSelectedGameHistoryTab);
         }
 
         [TestMethod]
-        public void Init_WithHistory_CreatesGameTabsFollowedBySettings()
+        public void Init_WithHistory_KeepsGamesNestedUnderHistory()
         {
             SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25, new DateTime(2026, 7, 31, 12, 0, 0, DateTimeKind.Utc));
             SeedLap("LMU", "Ferrari 499P", "Le Mans", "Le Mans - 24h", 210.5, new DateTime(2026, 7, 31, 13, 0, 0, DateTimeKind.Utc));
@@ -53,11 +56,26 @@ namespace StatsPlus.Tests
             StatsPlusPlugin plugin = CreateInitializedPlugin();
 
             CollectionAssert.AreEqual(
-                new[] { "iRacing", "LMU", "Settings" },
+                new[] { "History", "Settings" },
                 TabHeaders(plugin));
-            Assert.IsInstanceOfType(plugin.SelectedTopLevelTab, typeof(GameHistoryTab));
-            Assert.AreEqual("iRacing", ((GameHistoryTab)plugin.SelectedTopLevelTab).GameName);
-            Assert.AreSame(plugin.SelectedTopLevelTab, plugin.SelectedGameHistoryTab);
+            CollectionAssert.AreEqual(
+                new[] { "iRacing", "LMU" },
+                plugin.GameHistoryTabs.Select(tab => tab.Header).ToArray());
+            Assert.IsInstanceOfType(plugin.SelectedTopLevelTab, typeof(StatsPlusHistoryTab));
+            Assert.AreEqual("iRacing", plugin.SelectedGameHistoryTab.GameName);
+        }
+
+        [TestMethod]
+        public void SelectingSettings_DoesNotClearSelectedGameHistoryTab()
+        {
+            SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25, new DateTime(2026, 7, 31, 12, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+
+            plugin.SelectedTopLevelTab = plugin.TopLevelTabs.OfType<StatsPlusSettingsTab>().Single();
+
+            Assert.IsInstanceOfType(plugin.SelectedTopLevelTab, typeof(StatsPlusSettingsTab));
+            Assert.IsNotNull(plugin.SelectedGameHistoryTab);
+            Assert.AreEqual("iRacing", plugin.SelectedGameHistoryTab.GameName);
         }
 
         [TestMethod]
@@ -66,14 +84,13 @@ namespace StatsPlus.Tests
             SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25, new DateTime(2026, 7, 31, 12, 0, 0, DateTimeKind.Utc));
             SeedLap("LMU", "Ferrari 499P", "Le Mans", "Le Mans - 24h", 210.5, new DateTime(2026, 7, 31, 13, 0, 0, DateTimeKind.Utc));
             StatsPlusPlugin plugin = CreateInitializedPlugin();
-            GameHistoryTab lmuTab = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single(tab => tab.GameName == "LMU");
-            plugin.SelectedTopLevelTab = lmuTab;
+            GameHistoryTab lmuTab = plugin.GameHistoryTabs.Single(tab => tab.GameName == "LMU");
+            plugin.SelectedGameHistoryTab = lmuTab;
 
             plugin.RefreshStoredTrackSummaries();
 
-            Assert.IsInstanceOfType(plugin.SelectedTopLevelTab, typeof(GameHistoryTab));
-            Assert.AreEqual("LMU", ((GameHistoryTab)plugin.SelectedTopLevelTab).GameName);
-            Assert.AreSame(plugin.SelectedTopLevelTab, plugin.SelectedGameHistoryTab);
+            Assert.IsInstanceOfType(plugin.SelectedTopLevelTab, typeof(StatsPlusHistoryTab));
+            Assert.AreEqual("LMU", plugin.SelectedGameHistoryTab.GameName);
         }
 
         [TestMethod]
@@ -163,7 +180,7 @@ namespace StatsPlus.Tests
             SeedLap("LMU", "Ferrari 499P", "Le Mans", "Le Mans - 24h", 210.5, new DateTime(2026, 7, 31, 13, 0, 0, DateTimeKind.Utc));
             SeedLap("LMU", "Ferrari 499P", "Le Mans", "Le Mans - 24h", 208.4, new DateTime(2026, 7, 31, 13, 5, 0, DateTimeKind.Utc));
             StatsPlusPlugin plugin = CreateInitializedPlugin();
-            GameHistoryTab lmuTab = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single(tab => tab.GameName == "LMU");
+            GameHistoryTab lmuTab = plugin.GameHistoryTabs.Single(tab => tab.GameName == "LMU");
 
             plugin.SelectedTrackSummary = lmuTab.Tracks.Single();
 
@@ -178,7 +195,7 @@ namespace StatsPlus.Tests
             SeedLap("Automobilista2", "Formula Trainer", "Buenos_Aires", "Buenos_Aires-Buenos_Aires_Circuito_15", 118.5, new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
             StatsPlusPlugin plugin = CreateInitializedPlugin();
 
-            StoredTrackSummary summary = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single().Tracks.Single();
+            StoredTrackSummary summary = plugin.GameHistoryTabs.Single().Tracks.Single();
 
             Assert.AreEqual("Buenos_Aires-Buenos_Aires_Circuito_15", summary.TrackNameWithConfig);
             Assert.AreEqual("Buenos Aires", summary.CircuitNameDisplay);
@@ -190,7 +207,7 @@ namespace StatsPlus.Tests
         {
             SeedLap("RFactor2", "BTCC", "Lime Rock Park", "Lime Rock Park -- No Chicanes", 62.25, new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
             StatsPlusPlugin plugin = CreateInitializedPlugin();
-            GameHistoryTab tab = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single();
+            GameHistoryTab tab = plugin.GameHistoryTabs.Single();
 
             plugin.SelectedTrackSummary = tab.Tracks.Single();
 
@@ -206,7 +223,7 @@ namespace StatsPlus.Tests
             SeedLap("IRacing", "Mazda MX-5", "spielberg gp", "spielberg gp-Grand Prix", 91.25, new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
             SeedLap("IRacing", "Mazda MX-5", "spielberg_gp", "spielberg_gp-Grand Prix", 90.50, new DateTime(2026, 8, 21, 12, 5, 0, DateTimeKind.Utc));
             StatsPlusPlugin plugin = CreateInitializedPlugin();
-            GameHistoryTab tab = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single();
+            GameHistoryTab tab = plugin.GameHistoryTabs.Single();
 
             StoredTrackSummary spacedRawTrack = tab.Tracks.Single(summary => summary.TrackNameWithConfig == "spielberg gp-Grand Prix");
             StoredTrackSummary underscoreRawTrack = tab.Tracks.Single(summary => summary.TrackNameWithConfig == "spielberg_gp-Grand Prix");
@@ -232,7 +249,7 @@ namespace StatsPlus.Tests
         {
             SeedLap("AssettoCorsa", "GT Tornado V12", "ks_brands_hatch", "ks_brands_hatch-indy", 48.265, new DateTime(2026, 8, 21, 12, 0, 0, DateTimeKind.Utc));
             StatsPlusPlugin plugin = CreateInitializedPlugin();
-            StoredTrackSummary summary = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single().Tracks.Single();
+            StoredTrackSummary summary = plugin.GameHistoryTabs.Single().Tracks.Single();
 
             Assert.AreEqual("Brands Hatch - Indy", summary.CircuitNameDisplay);
             Assert.AreEqual("Brands Hatch - Indy", summary.CircuitLayoutDisplay);
@@ -248,22 +265,67 @@ namespace StatsPlus.Tests
             SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25, new DateTime(2026, 7, 31, 12, 0, 0, DateTimeKind.Utc));
             SeedLap("LMU", "Ferrari 499P", "Le Mans", "Le Mans - 24h", 210.5, new DateTime(2026, 7, 31, 13, 0, 0, DateTimeKind.Utc));
             StatsPlusPlugin plugin = CreateInitializedPlugin();
-            plugin.SelectedTopLevelTab = plugin.TopLevelTabs.OfType<GameHistoryTab>().Single(tab => tab.GameName == "LMU");
+            plugin.SelectedGameHistoryTab = plugin.GameHistoryTabs.Single(tab => tab.GameName == "LMU");
 
             plugin.ClearSelectedGameData();
 
             CollectionAssert.AreEqual(
-                new[] { "iRacing", "Settings" },
+                new[] { "History", "Settings" },
                 TabHeaders(plugin));
-            Assert.AreEqual("iRacing", ((GameHistoryTab)plugin.SelectedTopLevelTab).GameName);
+            Assert.IsInstanceOfType(plugin.SelectedTopLevelTab, typeof(StatsPlusHistoryTab));
+            Assert.AreEqual("iRacing", plugin.SelectedGameHistoryTab.GameName);
 
             plugin.ClearSelectedGameData();
 
             CollectionAssert.AreEqual(
-                new[] { "Settings" },
+                new[] { "History", "Settings" },
                 TabHeaders(plugin));
-            Assert.IsInstanceOfType(plugin.SelectedTopLevelTab, typeof(StatsPlusSettingsTab));
             Assert.IsNull(plugin.SelectedGameHistoryTab);
+        }
+
+        [TestMethod]
+        public void ClearGameData_RemovesNamedGameWithoutRequiringSelectedGameTab()
+        {
+            SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 91.25, new DateTime(2026, 7, 31, 12, 0, 0, DateTimeKind.Utc));
+            SeedLap("LMU", "Ferrari 499P", "Le Mans", "Le Mans - 24h", 210.5, new DateTime(2026, 7, 31, 13, 0, 0, DateTimeKind.Utc));
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            plugin.SelectedTopLevelTab = plugin.TopLevelTabs.OfType<StatsPlusSettingsTab>().Single();
+            Assert.IsNotNull(plugin.SelectedGameHistoryTab);
+            MethodInfo method = typeof(StatsPlusPlugin).GetMethod(
+                "ClearGameData",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, "Expected StatsPlusPlugin.ClearGameData to exist.");
+            method.Invoke(plugin, new object[] { "LMU" });
+
+            CollectionAssert.AreEqual(
+                new[] { "History", "Settings" },
+                TabHeaders(plugin));
+            Assert.IsNotNull(plugin.GameHistoryTabs.SingleOrDefault(tab => tab.GameName == "iRacing"));
+            Assert.IsNull(plugin.GameHistoryTabs.SingleOrDefault(tab => tab.GameName == "LMU"));
+            Assert.IsInstanceOfType(plugin.SelectedTopLevelTab, typeof(StatsPlusSettingsTab));
+        }
+
+        [TestMethod]
+        public void SetLapValidity_UpdatesStoredLapAndTrackSummary()
+        {
+            SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 122.0, new DateTime(2026, 8, 31, 12, 0, 0, DateTimeKind.Utc), lapNumber: 1);
+            SeedLap("iRacing", "Mazda MX-5", "Laguna Seca", "Laguna Seca", 119.0, new DateTime(2026, 8, 31, 12, 2, 0, DateTimeKind.Utc), lapNumber: 2);
+            StatsPlusPlugin plugin = CreateInitializedPlugin();
+            plugin.SelectedTrackSummary = plugin.GameHistoryTabs.Single().Tracks.Single();
+            RecordedLapView fastestLap = plugin.SelectedTrackLaps.Single(lap => Math.Abs(lap.LapTimeSeconds - 119.0) < 0.0001);
+            MethodInfo method = typeof(StatsPlusPlugin).GetMethod(
+                "SetLapValidity",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(RecordedLapView), typeof(bool) },
+                null);
+
+            Assert.IsNotNull(method, "Expected StatsPlusPlugin.SetLapValidity to exist.");
+            method.Invoke(plugin, new object[] { fastestLap, false });
+
+            Assert.IsFalse(plugin.SelectedTrackLaps.Single(lap => lap.LapId == fastestLap.LapId).IsValid);
+            Assert.AreEqual(122.0, plugin.GameHistoryTabs.Single().Tracks.Single().BestLapSeconds, 0.0001);
         }
 
         private StatsPlusPlugin CreateInitializedPlugin()
@@ -274,7 +336,7 @@ namespace StatsPlus.Tests
             return _plugin;
         }
 
-        private void SeedLap(string gameName, string carModel, string trackName, string trackNameWithConfig, double lapSeconds, DateTime timestampUtc)
+        private void SeedLap(string gameName, string carModel, string trackName, string trackNameWithConfig, double lapSeconds, DateTime timestampUtc, int lapNumber = 1, bool isValid = true)
         {
             string databasePath = Path.Combine(_tempDirectory, "PluginsData", "StatsPlus", "StatsPlus.laps.ldb");
             using (var repository = new StatsPlusLiteDbRepository(databasePath))
@@ -282,12 +344,12 @@ namespace StatsPlus.Tests
                 repository.Initialize();
                 repository.AddLap(gameName, carModel, trackName, trackNameWithConfig, new RecordedLap
                 {
-                    LapNumber = 1,
+                    LapNumber = lapNumber,
                     LapTimeSeconds = lapSeconds,
                     Sector1Seconds = 0.0,
                     Sector2Seconds = 0.0,
                     Sector3Seconds = lapSeconds,
-                    IsValid = true,
+                    IsValid = isValid,
                     TimestampUtc = timestampUtc
                 });
             }
@@ -298,9 +360,9 @@ namespace StatsPlus.Tests
             return plugin.TopLevelTabs
                 .Select(tab =>
                 {
-                    if (tab is GameHistoryTab gameTab)
+                    if (tab is StatsPlusHistoryTab historyTab)
                     {
-                        return gameTab.Header;
+                        return historyTab.Header;
                     }
 
                     return ((StatsPlusSettingsTab)tab).Header;

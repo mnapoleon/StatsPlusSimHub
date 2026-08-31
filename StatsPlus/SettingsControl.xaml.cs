@@ -36,14 +36,21 @@ namespace StatsPlus
             }
         }
 
-        private void ToggleLapValidityButton_Click(object sender, RoutedEventArgs e)
+        private void LapValidityCheckBox_Click(object sender, RoutedEventArgs e)
         {
-            _plugin.ToggleSelectedLapValidity();
+            CheckBox checkBox = sender as CheckBox;
+            if (checkBox?.DataContext is RecordedLapView lap && checkBox.IsChecked.HasValue)
+            {
+                _plugin.SetLapValidity(lap, checkBox.IsChecked.Value);
+            }
         }
 
-        private void ClearSelectedGameButton_Click(object sender, RoutedEventArgs e)
+        private void ClearGameDataButton_Click(object sender, RoutedEventArgs e)
         {
-            _plugin.ClearSelectedGameData();
+            if ((sender as Button)?.CommandParameter is string gameName)
+            {
+                _plugin.ClearGameData(gameName);
+            }
         }
 
         private void ClearAllDataButton_Click(object sender, RoutedEventArgs e)

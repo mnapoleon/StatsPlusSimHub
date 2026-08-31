@@ -84,4 +84,9 @@ namespace StatsPlus
     {
         public string Header => "Settings";
     }
+
+    public class StatsPlusHistoryTab
+    {
+        public string Header => "History";
+    }
 }

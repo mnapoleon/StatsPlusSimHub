@@ -77,6 +77,18 @@ namespace StatsPlus
             Laps.Update(lap);
         }
 
+        public void SetLapValidity(long lapId, bool isValid)
+        {
+            LapDocument lap = Laps.FindById(lapId);
+            if (lap == null)
+            {
+                return;
+            }
+
+            lap.IsValid = isValid;
+            Laps.Update(lap);
+        }
+
         public void DeleteGameData(string gameName)
         {
             ExecuteStoreMutation(() =>

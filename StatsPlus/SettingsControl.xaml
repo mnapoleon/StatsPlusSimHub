@@ -27,12 +27,9 @@
                 CornerRadius="4">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="1.1*" MinWidth="110" />
+                    <ColumnDefinition Width="2.2*" MinWidth="180" />
+                    <ColumnDefinition Width="4*" MinWidth="420" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
@@ -45,25 +42,27 @@
                     <TextBlock Margin="0,4,0,0" Foreground="#D8D8D8" FontSize="12" Text="{Binding CurrentContext}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="2">
-                    <TextBlock Foreground="#89D9FF" FontSize="12" FontWeight="SemiBold" Text="Session laps" />
-                    <TextBlock Foreground="#D8D8D8" FontSize="18" FontWeight="Bold" Text="{Binding SessionLapCount}" />
-                </StackPanel>
+                <UniformGrid Grid.Column="2" Columns="4">
+                    <StackPanel Margin="12,0,0,0">
+                        <TextBlock Foreground="#89D9FF" FontSize="12" FontWeight="SemiBold" Text="Laps" />
+                        <TextBlock Foreground="#D8D8D8" FontSize="18" FontWeight="Bold" Text="{Binding SessionLapCount}" />
+                    </StackPanel>
 
-                <StackPanel Grid.Column="3">
-                    <TextBlock Foreground="#89D9FF" FontSize="12" FontWeight="SemiBold" Text="Last" />
-                    <TextBlock Foreground="#D8D8D8" FontSize="18" FontWeight="Bold" Text="{Binding LastLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" />
-                </StackPanel>
+                    <StackPanel Margin="12,0,0,0">
+                        <TextBlock Foreground="#89D9FF" FontSize="12" FontWeight="SemiBold" Text="Last" />
+                        <TextBlock Foreground="#D8D8D8" FontSize="18" FontWeight="Bold" Text="{Binding LastLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" />
+                    </StackPanel>
 
-                <StackPanel Grid.Column="4">
-                    <TextBlock Foreground="#89D9FF" FontSize="12" FontWeight="SemiBold" Text="Session best" />
-                    <TextBlock Foreground="#D8D8D8" FontSize="18" FontWeight="Bold" Text="{Binding SessionBestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" />
-                </StackPanel>
+                    <StackPanel Margin="12,0,0,0">
+                        <TextBlock Foreground="#89D9FF" FontSize="12" FontWeight="SemiBold" Text="Session best" />
+                        <TextBlock Foreground="#D8D8D8" FontSize="18" FontWeight="Bold" Text="{Binding SessionBestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" />
+                    </StackPanel>
 
-                <StackPanel Grid.Column="5">
-                    <TextBlock Foreground="#89D9FF" FontSize="12" FontWeight="SemiBold" Text="All-time best" />
-                    <TextBlock Foreground="#D8D8D8" FontSize="18" FontWeight="Bold" Text="{Binding AllTimeBestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" />
-                </StackPanel>
+                    <StackPanel Margin="12,0,0,0">
+                        <TextBlock Foreground="#89D9FF" FontSize="12" FontWeight="SemiBold" Text="All-time best" />
+                        <TextBlock Foreground="#D8D8D8" FontSize="18" FontWeight="Bold" Text="{Binding AllTimeBestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" />
+                    </StackPanel>
+                </UniformGrid>
             </Grid>
         </Border>
 
@@ -77,48 +76,53 @@
                 </styles:SHTabControl.ItemTemplate>
 
                 <styles:SHTabControl.Resources>
-                    <DataTemplate DataType="{x:Type local:GameHistoryTab}">
+                    <DataTemplate DataType="{x:Type local:StatsPlusHistoryTab}">
                         <StackPanel>
-                            <styles:SHSection Title="Stored History">
-                                <StackPanel Margin="12">
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                        <Button Width="140"
-                                                Margin="0,0,10,0"
-                                                HorizontalAlignment="Left"
-                                                Click="RefreshHistoryButton_Click"
-                                                Content="Refresh history" />
-                                        <Button Width="150"
-                                                Margin="0,0,10,0"
-                                                HorizontalAlignment="Left"
-                                                IsEnabled="{Binding DataContext.HasSelectedGameHistoryTab, ElementName=Root}"
-                                                Click="ClearSelectedGameButton_Click"
-                                                Content="Clear selected game" />
-                                        <Button Width="120"
-                                                Margin="14,0,0,0"
-                                                HorizontalAlignment="Left"
-                                                Click="ClearAllDataButton_Click"
-                                                Content="Clear all data" />
-                                    </StackPanel>
+                            <TextBlock Margin="12"
+                                       FontStyle="Italic"
+                                       Text="No stored history."
+                                       Visibility="{Binding DataContext.HasNoStoredHistory, ElementName=Root, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <styles:SHTabControl ItemsSource="{Binding DataContext.GameHistoryTabs, ElementName=Root}"
+                                                 SelectedItem="{Binding DataContext.SelectedGameHistoryTab, ElementName=Root, Mode=TwoWay}">
+                                <styles:SHTabControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Header}" />
+                                    </DataTemplate>
+                                </styles:SHTabControl.ItemTemplate>
 
+                                <styles:SHTabControl.Resources>
+                                    <DataTemplate DataType="{x:Type local:GameHistoryTab}">
+                                        <StackPanel>
+                                            <styles:SHSection Title="Stored History">
+                                                <StackPanel Margin="12">
                                     <Grid Margin="0,0,0,10">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <ComboBox Grid.Column="0"
-                                                  Width="125"
+                                        <Button Grid.Column="0"
+                                                Width="118"
+                                                Margin="0,0,12,0"
+                                                HorizontalAlignment="Left"
+                                                Click="RefreshHistoryButton_Click"
+                                                Content="Refresh history" />
+
+                                        <ComboBox Grid.Column="1"
+                                                  Width="120"
                                                   ItemsSource="{Binding SearchFieldOptions}"
                                                   DisplayMemberPath="Label"
                                                   SelectedValuePath="Field"
                                                   SelectedValue="{Binding SelectedSearchField, Mode=TwoWay}" />
-                                        <TextBox Grid.Column="1"
-                                                 MinWidth="220"
+
+                                        <TextBox Grid.Column="2"
+                                                 MinWidth="180"
                                                  Margin="8,0"
                                                  ToolTip="Search car, circuit, or layout"
                                                  Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                        <Button Grid.Column="2"
+                                        <Button Grid.Column="3"
                                                 Width="70"
                                                 Click="ClearHistorySearchButton_Click"
                                                 Content="Clear" />
@@ -134,49 +138,56 @@
                                               AutoGenerateColumns="False"
                                               CanUserAddRows="False"
                                               IsReadOnly="True"
-                                              Height="300"
+                                              MinHeight="280"
+                                              MaxHeight="360"
                                               SelectedItem="{Binding DataContext.SelectedTrackSummary, ElementName=Root, Mode=TwoWay}">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Car" Binding="{Binding CarModelDisplay}" Width="180" />
-                                            <DataGridTextColumn Header="Circuit Name" Binding="{Binding CircuitNameDisplay}" Width="180" />
-                                            <DataGridTextColumn Header="Circuit Layout" Binding="{Binding CircuitLayoutDisplay}" Width="180" />
+                                            <DataGridTextColumn Header="Car" Binding="{Binding CarModelDisplay}" Width="1.2*" />
+                                            <DataGridTextColumn Header="Circuit Name" Binding="{Binding CircuitNameDisplay}" Width="1.4*" />
+                                            <DataGridTextColumn Header="Circuit Layout" Binding="{Binding CircuitLayoutDisplay}" Width="1.4*" />
                                             <DataGridTextColumn Header="Laps" Binding="{Binding LapCount}" Width="60" />
                                             <DataGridTextColumn Header="Best" Binding="{Binding BestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="90" />
-                                            <DataGridTextColumn Header="Last UTC" Binding="{Binding LastRecordedUtc, StringFormat={}{0:u}}" Width="150" />
+                                            <DataGridTextColumn Header="Last UTC" Binding="{Binding LastRecordedUtc, StringFormat={}{0:u}}" Width="140" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                </StackPanel>
-                            </styles:SHSection>
+                                                </StackPanel>
+                                            </styles:SHSection>
 
-                            <styles:SHSection Title="Recorded Laps">
-                                <StackPanel Margin="12">
+                                            <styles:SHSection Title="Recorded Laps">
+                                                <StackPanel Margin="12">
                                     <TextBlock Margin="0,0,0,8"
                                                FontWeight="Bold"
                                                Text="{Binding DataContext.SelectedTrackCaption, ElementName=Root}" />
-                                    <Button Width="170"
-                                            Margin="0,0,0,10"
-                                            HorizontalAlignment="Left"
-                                            IsEnabled="{Binding DataContext.HasSelectedLap, ElementName=Root}"
-                                            Click="ToggleLapValidityButton_Click"
-                                            Content="Toggle selected lap valid" />
                                     <DataGrid ItemsSource="{Binding DataContext.SelectedTrackLaps, ElementName=Root}"
                                               AutoGenerateColumns="False"
                                               CanUserAddRows="False"
-                                              IsReadOnly="True"
-                                              Height="240"
+                                              MinHeight="220"
+                                              MaxHeight="320"
                                               SelectedItem="{Binding DataContext.SelectedLap, ElementName=Root, Mode=TwoWay}">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Lap" Binding="{Binding LapNumber}" Width="55" />
-                                            <DataGridTextColumn Header="Time" Binding="{Binding LapTimeSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="90" />
-                                            <DataGridTextColumn Header="S1" Binding="{Binding Sector1Seconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="80" />
-                                            <DataGridTextColumn Header="S2" Binding="{Binding Sector2Seconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="80" />
-                                            <DataGridTextColumn Header="S3" Binding="{Binding Sector3Seconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="80" />
-                                            <DataGridCheckBoxColumn Header="Valid" Binding="{Binding IsValid}" Width="60" />
-                                            <DataGridTextColumn Header="Recorded UTC" Binding="{Binding TimestampUtc, StringFormat={}{0:u}}" Width="160" />
+                                            <DataGridTextColumn Header="Lap" IsReadOnly="True" Binding="{Binding LapNumber}" Width="55" />
+                                            <DataGridTextColumn Header="Time" IsReadOnly="True" Binding="{Binding LapTimeSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="85" />
+                                            <DataGridTextColumn Header="S1" IsReadOnly="True" Binding="{Binding Sector1Seconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="75" />
+                                            <DataGridTextColumn Header="S2" IsReadOnly="True" Binding="{Binding Sector2Seconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="75" />
+                                            <DataGridTextColumn Header="S3" IsReadOnly="True" Binding="{Binding Sector3Seconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="75" />
+                                            <DataGridTemplateColumn Header="Valid" Width="60">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox HorizontalAlignment="Center"
+                                                                  IsChecked="{Binding IsValid, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                  Click="LapValidityCheckBox_Click" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Recorded UTC" IsReadOnly="True" Binding="{Binding TimestampUtc, StringFormat={}{0:u}}" Width="140" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                </StackPanel>
-                            </styles:SHSection>
+                                                </StackPanel>
+                                            </styles:SHSection>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </styles:SHTabControl.Resources>
+                            </styles:SHTabControl>
                         </StackPanel>
                     </DataTemplate>
 
@@ -209,79 +220,100 @@
                                 </StackPanel>
                             </styles:SHSection>
 
-                            <styles:SHSection Title="Enabled Games">
+                            <styles:SHSection Title="Game Options">
                                 <StackPanel Margin="12">
-                                    <TextBlock Margin="0,0,0,10" TextWrapping="Wrap">
-                                        StatsPlus only records laps for the enabled games below. Unsupported or disabled games are ignored.
-                                    </TextBlock>
-                                    <Grid>
+                                    <Grid Margin="0,0,0,12">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="220" />
                                             <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Assetto Corsa" />
-                                        <CheckBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAssettoCorsa, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Assetto Corsa Competizione" />
-                                        <CheckBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAssettoCorsaCompetizione, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Assetto Corsa EVO" />
-                                        <CheckBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAssettoCorsaEvo, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Automobilista 2" />
-                                        <CheckBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordAutomobilista2, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="4" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="iRacing" />
-                                        <CheckBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordIRacing, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="5" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="Le Mans Ultimate" />
-                                        <CheckBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordLeMansUltimate, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="6" Grid.Column="0" Margin="0,0,12,8" VerticalAlignment="Center" Text="rFactor 2" />
-                                        <CheckBox Grid.Row="6" Grid.Column="1" Margin="0,0,0,8" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordRFactor2, ElementName=Root, Mode=TwoWay}" />
-                                        <TextBlock Grid.Row="7" Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center" Text="RaceRoom / RRRE" />
-                                        <CheckBox Grid.Row="7" Grid.Column="1" Margin="0,0,0,0" HorizontalAlignment="Left" IsChecked="{Binding DataContext.Settings.RecordR3E, ElementName=Root, Mode=TwoWay}" />
-                                    </Grid>
-                                </StackPanel>
-                            </styles:SHSection>
-
-                            <styles:SHSection Title="Debug Logging">
-                                <StackPanel Margin="12">
-                                    <Grid Margin="0,0,0,10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="190" />
-                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
                                         <TextBlock Grid.Column="0"
                                                    Margin="0,0,12,0"
                                                    VerticalAlignment="Center"
-                                                   Text="Debug logging" />
+                                                   TextWrapping="Wrap"
+                                                   Text="StatsPlus only records laps for enabled games. Debug logs are written per game when the master switch is enabled." />
                                         <CheckBox Grid.Column="1"
                                                   HorizontalAlignment="Left"
+                                                  VerticalAlignment="Center"
                                                   Content="Write diagnostic debug log"
                                                   IsChecked="{Binding DataContext.IsDebugLoggingEnabled, ElementName=Root, Mode=TwoWay}" />
                                     </Grid>
 
-                                    <TextBlock Margin="0,0,0,8" TextWrapping="Wrap">
-                                        Diagnostic logs are written to separate files per game. Per-game logging options are available when debug logging is enabled.
-                                    </TextBlock>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="100" />
+                                        </Grid.ColumnDefinitions>
 
-                                    <ItemsControl IsEnabled="{Binding DataContext.IsDebugLoggingEnabled, ElementName=Root}"
-                                                  ItemsSource="{Binding DataContext.GameDebugLoggingOptions, ElementName=Root}">
+                                        <TextBlock Grid.Column="0" Foreground="#89D9FF" FontWeight="SemiBold" Text="Game" />
+                                        <TextBlock Grid.Column="1" Foreground="#89D9FF" FontWeight="SemiBold" Text="Record laps" />
+                                        <TextBlock Grid.Column="2" Foreground="#89D9FF" FontWeight="SemiBold" Text="Debug logs" />
+                                    </Grid>
+
+                                    <ItemsControl ItemsSource="{Binding DataContext.GameOptions, ElementName=Root}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <CheckBox Margin="0,0,0,6"
-                                                          Content="{Binding DisplayName}"
-                                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
+                                                <Grid Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="100" />
+                                                        <ColumnDefinition Width="100" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock Grid.Column="0"
+                                                               Margin="0,0,12,0"
+                                                               VerticalAlignment="Center"
+                                                               Text="{Binding DisplayName}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <CheckBox Grid.Column="1"
+                                                              HorizontalAlignment="Left"
+                                                              IsChecked="{Binding IsRecordingEnabled, Mode=TwoWay}" />
+                                                    <CheckBox Grid.Column="2"
+                                                              HorizontalAlignment="Left"
+                                                              IsEnabled="{Binding DataContext.IsDebugLoggingEnabled, ElementName=Root}"
+                                                              IsChecked="{Binding IsDebugLoggingEnabled, Mode=TwoWay}" />
+                                                </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                </StackPanel>
+                            </styles:SHSection>
+
+                            <styles:SHSection Title="Data Management">
+                                <StackPanel Margin="12">
+                                    <ItemsControl Margin="0,0,0,10"
+                                                  ItemsSource="{Binding DataContext.GameHistoryTabs, ElementName=Root}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="120" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock Grid.Column="0"
+                                                               Margin="0,0,12,0"
+                                                               VerticalAlignment="Center"
+                                                               Text="{Binding GameName}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <Button Grid.Column="1"
+                                                            HorizontalAlignment="Left"
+                                                            CommandParameter="{Binding GameName}"
+                                                            Click="ClearGameDataButton_Click"
+                                                            Content="Clear history" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Width="130"
+                                                HorizontalAlignment="Left"
+                                                Click="ClearAllDataButton_Click"
+                                                Content="Clear all data" />
+                                    </StackPanel>
                                 </StackPanel>
                             </styles:SHSection>
 
@@ -295,7 +327,7 @@
                                         Published properties: StatsPlus.Version, StatsPlus.Enabled, StatsPlus.Label, StatsPlus.GameName,
                                         StatsPlus.TrackName, StatsPlus.CarModel, StatsPlus.SpeedKmh, StatsPlus.IsGameRunning,
                                         StatsPlus.LastLapTime, StatsPlus.SessionBestLapTime, StatsPlus.AllTimeBestLapTime,
-                                        StatsPlus.SessionLapCount, StatsPlus.LastSector1Time, StatsPlus.LastSector2Time, StatsPlus.LastSector3Time
+                                        StatsPlus.SessionLapCount, StatsPlus.LastSector1Time, StatsPlus.LastSector2Time, StatsPlus.LastSector3Time.
                                     </TextBlock>
                                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">
                                         Stored personal bests are also exposed as StatsPlus.PersonalBest.{Game}.{Car}.{TrackVariation},
