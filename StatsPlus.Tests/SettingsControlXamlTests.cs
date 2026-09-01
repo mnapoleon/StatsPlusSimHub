@@ -35,6 +35,18 @@ namespace StatsPlus.Tests
             Assert.IsFalse(xaml.Contains("ItemsSource=\"{Binding Tracks}\""));
         }
 
+        [TestMethod]
+        public void StoredHistoryGrid_ColorsBestLapByValidity()
+        {
+            string xaml = File.ReadAllText(FindSettingsControlXamlPath());
+
+            StringAssert.Contains(xaml, "Header=\"Best\"");
+            StringAssert.Contains(xaml, "Binding=\"{Binding BestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}\"");
+            StringAssert.Contains(xaml, "Binding=\"{Binding IsBestLapValid}\" Value=\"False\"");
+            StringAssert.Contains(xaml, "Property=\"Foreground\" Value=\"LimeGreen\"");
+            StringAssert.Contains(xaml, "Property=\"Foreground\" Value=\"Red\"");
+        }
+
         private static string FindSettingsControlXamlPath()
         {
             DirectoryInfo directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);

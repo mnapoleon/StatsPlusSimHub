@@ -141,7 +141,18 @@
                                             <DataGridTextColumn Header="Circuit Name" Binding="{Binding CircuitNameDisplay}" Width="180" />
                                             <DataGridTextColumn Header="Circuit Layout" Binding="{Binding CircuitLayoutDisplay}" Width="180" />
                                             <DataGridTextColumn Header="Laps" Binding="{Binding LapCount}" Width="60" />
-                                            <DataGridTextColumn Header="Best" Binding="{Binding BestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="90" />
+                                            <DataGridTextColumn Header="Best" Binding="{Binding BestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}" Width="90">
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="{x:Type TextBlock}">
+                                                        <Setter Property="Foreground" Value="LimeGreen" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsBestLapValid}" Value="False">
+                                                                <Setter Property="Foreground" Value="Red" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
                                             <DataGridTextColumn Header="Last UTC" Binding="{Binding LastRecordedUtc, StringFormat={}{0:u}}" Width="150" />
                                         </DataGrid.Columns>
                                     </DataGrid>
