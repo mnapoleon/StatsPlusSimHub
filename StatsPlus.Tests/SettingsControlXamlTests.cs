@@ -36,6 +36,18 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void StoredHistoryGrid_ColorsBestLapByValidity()
+        {
+            string xaml = File.ReadAllText(FindSettingsControlXamlPath());
+
+            StringAssert.Contains(xaml, "Header=\"Best\"");
+            StringAssert.Contains(xaml, "Binding=\"{Binding BestLapSeconds, Converter={StaticResource TimeSpanSecondsFormatter}}\"");
+            StringAssert.Contains(xaml, "Binding=\"{Binding IsBestLapValid}\" Value=\"False\"");
+            StringAssert.Contains(xaml, "Property=\"Foreground\" Value=\"LimeGreen\"");
+            StringAssert.Contains(xaml, "Property=\"Foreground\" Value=\"Red\"");
+        }
+
+        [TestMethod]
         public void DestructiveHistoryActions_AreShownAsPerGameRowsInSettings()
         {
             string xaml = File.ReadAllText(FindSettingsControlXamlPath());

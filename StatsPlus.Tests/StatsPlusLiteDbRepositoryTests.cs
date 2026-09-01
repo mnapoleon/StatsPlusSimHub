@@ -155,6 +155,7 @@ namespace StatsPlus.Tests
                 Assert.AreEqual("spa-gp", summaries[0].TrackNameWithConfig);
                 Assert.AreEqual(2, summaries[0].LapCount);
                 Assert.AreEqual(121.5, summaries[0].BestLapSeconds, 0.0001);
+                Assert.IsTrue(summaries[0].IsBestLapValid);
                 Assert.AreEqual(newestLapTime, summaries[0].LastRecordedUtc);
 
                 var laps = repository.GetTrackLaps("assettocorsa", "bmw m3 gt2", "SPA-GP");
@@ -166,6 +167,35 @@ namespace StatsPlus.Tests
                 var personalBests = repository.GetPersonalBestPropertyValues();
                 Assert.AreEqual(1, personalBests.Count);
                 Assert.AreEqual(121.5, personalBests["StatsPlus.PersonalBest.AssettoCorsa.BMW_M3_GT2.spa_gp"], 0.0001);
+            }
+        }
+
+        [TestMethod]
+        public void GetTrackSummaries_UsesFastestInvalidLapWhenNoValidLapExists()
+        {
+            using (var repository = CreateRepository())
+            {
+                repository.AddLap("AssettoCorsa", "BMW M3 GT2", "spa", "spa-gp", new RecordedLap
+                {
+                    LapNumber = 1,
+                    LapTimeSeconds = 122.0,
+                    IsValid = false,
+                    TimestampUtc = new DateTime(2026, 5, 25, 1, 0, 0, DateTimeKind.Utc)
+                });
+                repository.AddLap("AssettoCorsa", "BMW M3 GT2", "spa", "spa-gp", new RecordedLap
+                {
+                    LapNumber = 2,
+                    LapTimeSeconds = 119.0,
+                    IsValid = false,
+                    TimestampUtc = new DateTime(2026, 5, 25, 1, 2, 0, DateTimeKind.Utc)
+                });
+
+                StoredTrackSummary summary = repository.GetTrackSummaries().Single();
+
+                Assert.AreEqual(119.0, summary.BestLapSeconds, 0.0001);
+                Assert.IsFalse(summary.IsBestLapValid);
+                Assert.AreEqual(0.0, repository.GetBestLapSeconds("AssettoCorsa", "BMW M3 GT2", "SPA-GP"), 0.0001);
+                Assert.AreEqual(0, repository.GetPersonalBestPropertyValues().Count);
             }
         }
 

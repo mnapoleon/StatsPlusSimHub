@@ -42,6 +42,8 @@ namespace StatsPlus
 
         public double BestLapSeconds { get; set; }
 
+        public bool IsBestLapValid { get; set; }
+
         public DateTime LastRecordedUtc { get; set; }
     }
 

@@ -141,6 +141,15 @@ namespace StatsPlus
             foreach (TrackHistoryDocument history in TrackHistories.FindAll())
             {
                 List<LapDocument> laps = Laps.Find(lap => lap.TrackHistoryId == history.Id).ToList();
+                LapDocument bestValidLap = laps
+                    .Where(lap => lap.IsValid && lap.LapTimeSeconds > 0)
+                    .OrderBy(lap => lap.LapTimeSeconds)
+                    .FirstOrDefault();
+                LapDocument bestDisplayLap = bestValidLap ?? laps
+                    .Where(lap => lap.LapTimeSeconds > 0)
+                    .OrderBy(lap => lap.LapTimeSeconds)
+                    .FirstOrDefault();
+
                 summaries.Add(new StoredTrackSummary
                 {
                     GameName = history.GameName,
@@ -150,10 +159,8 @@ namespace StatsPlus
                     TrackNameWithConfig = history.TrackNameWithConfig,
                     TrackNameWithConfigDisplay = history.DisplayTrackNameWithConfig,
                     LapCount = laps.Count,
-                    BestLapSeconds = laps.Where(lap => lap.IsValid && lap.LapTimeSeconds > 0)
-                        .Select(lap => lap.LapTimeSeconds)
-                        .DefaultIfEmpty(0.0)
-                        .Min(),
+                    BestLapSeconds = bestDisplayLap?.LapTimeSeconds ?? 0.0,
+                    IsBestLapValid = bestValidLap != null,
                     LastRecordedUtc = history.LastUpdatedUtc
                 });
             }
@@ -195,7 +202,7 @@ namespace StatsPlus
         {
             var values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (StoredTrackSummary summary in GetTrackSummaries().Where(summary => summary.BestLapSeconds > 0))
+            foreach (StoredTrackSummary summary in GetTrackSummaries().Where(summary => summary.IsBestLapValid && summary.BestLapSeconds > 0))
             {
                 values[StatsPlusPropertyNames.BuildPersonalBestPropertyName(
                     summary.GameName,
