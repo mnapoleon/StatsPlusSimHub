@@ -61,6 +61,7 @@ namespace StatsPlus
         private StoredTrackSummary _selectedTrackSummary;
         private RecordedLapView _selectedLap;
         private GameHistoryTab _selectedGameHistoryTab;
+        private readonly StatsPlusHistoryTab _historyTab = new StatsPlusHistoryTab();
         private readonly StatsPlusSettingsTab _settingsTab = new StatsPlusSettingsTab();
         private object _selectedTopLevelTab;
         private ImageSource _pictureIcon;
@@ -81,6 +82,8 @@ namespace StatsPlus
         public ObservableCollection<object> TopLevelTabs { get; } = new ObservableCollection<object>();
 
         public ObservableCollection<GameDebugLoggingOption> GameDebugLoggingOptions { get; } = new ObservableCollection<GameDebugLoggingOption>();
+
+        public ObservableCollection<GameSettingsOption> GameOptions { get; } = new ObservableCollection<GameSettingsOption>();
 
         public bool IsDebugLoggingEnabled
         {
@@ -109,15 +112,6 @@ namespace StatsPlus
 
                 _selectedTopLevelTab = value;
                 OnPropertyChanged();
-
-                if (value is GameHistoryTab gameTab)
-                {
-                    SelectedGameHistoryTab = gameTab;
-                }
-                else
-                {
-                    SelectedGameHistoryTab = null;
-                }
             }
         }
 
@@ -132,6 +126,8 @@ namespace StatsPlus
         public bool HasSelectedLap => SelectedLap != null;
 
         public bool HasSelectedGameHistoryTab => SelectedGameHistoryTab != null;
+
+        public bool HasNoStoredHistory => GameHistoryTabs.Count == 0;
 
         public string CurrentContext => $"{CurrentGameName} / {CurrentCarModel} / {GetDisplayTrackNameWithConfig(CurrentGameName, CurrentTrackNameWithConfig)}";
 
@@ -384,6 +380,7 @@ namespace StatsPlus
             Settings = LoadSettings();
             EnsureDefaultGameDebugLoggingSettings();
             RefreshGameDebugLoggingOptions();
+            RefreshGameOptions();
             _assettoCorsaTrackMap = LoadAssettoCorsaTrackMap();
             InitializeDatabase();
 
@@ -785,6 +782,7 @@ namespace StatsPlus
             Settings.Reset();
             EnsureDefaultGameDebugLoggingSettings();
             RefreshGameDebugLoggingOptions();
+            RefreshGameOptions();
             OnPropertyChanged(nameof(IsDebugLoggingEnabled));
             SaveSettings();
         }
@@ -814,6 +812,7 @@ namespace StatsPlus
             void Apply()
             {
                 object previousSelectedTopLevelTab = SelectedTopLevelTab;
+                string previousSelectedGameName = SelectedGameHistoryTab?.GameName;
                 string selectedGame = SelectedTrackSummary?.GameName;
                 string selectedCar = SelectedTrackSummary?.CarModel;
                 string selectedTrackConfig = SelectedTrackSummary?.TrackNameWithConfig;
@@ -822,6 +821,9 @@ namespace StatsPlus
 
                 GameHistoryTabs.Clear();
                 TopLevelTabs.Clear();
+                TopLevelTabs.Add(_historyTab);
+                TopLevelTabs.Add(_settingsTab);
+
                 foreach (GameHistoryTab tab in tabs)
                 {
                     if (previousTabs.TryGetValue(tab.GameName, out GameHistoryTab previousTab))
@@ -831,12 +833,14 @@ namespace StatsPlus
 
                     tab.FilterChanged += GameHistoryTab_FilterChanged;
                     GameHistoryTabs.Add(tab);
-                    TopLevelTabs.Add(tab);
                 }
 
-                TopLevelTabs.Add(_settingsTab);
+                OnPropertyChanged(nameof(HasNoStoredHistory));
 
-                SelectedTopLevelTab = ResolveSelectedTopLevelTab(previousSelectedTopLevelTab, tabs, _settingsTab);
+                SelectedTopLevelTab = ResolveSelectedTopLevelTab(previousSelectedTopLevelTab, _historyTab, _settingsTab);
+                SelectedGameHistoryTab = tabs.FirstOrDefault(tab =>
+                    string.Equals(tab.GameName, previousSelectedGameName, StringComparison.OrdinalIgnoreCase)) ??
+                    tabs.FirstOrDefault();
 
                 GameHistoryTab selectedSummaryTab = tabs.FirstOrDefault(tab =>
                     string.Equals(tab.GameName, selectedGame, StringComparison.OrdinalIgnoreCase));
@@ -881,17 +885,28 @@ namespace StatsPlus
                 return;
             }
 
+            SetLapValidity(SelectedLap, !SelectedLap.IsValid);
+        }
+
+        internal void SetLapValidity(RecordedLapView lap, bool isValid)
+        {
+            if (lap == null)
+            {
+                return;
+            }
+
             if (HasLapRepository)
             {
-                _liteDbRepository.ToggleLapValidity(SelectedLap.LapId);
+                _liteDbRepository.SetLapValidity(lap.LapId, isValid);
             }
-            LoadSelectedTrackLaps(SelectedLap.TimestampUtc);
-            RefreshStoredTrackSummaries();
-            RefreshPersonalBestProperties(PluginManager);
 
-            if (IsSameContext(SelectedLap.GameName, SelectedLap.CarModel, SelectedLap.TrackName, SelectedLap.TrackNameWithConfig))
+            RefreshPersonalBestProperties(PluginManager);
+            RefreshStoredTrackSummaries();
+            LoadSelectedTrackLaps(lap.TimestampUtc);
+
+            if (IsSameContext(lap.GameName, lap.CarModel, lap.TrackName, lap.TrackNameWithConfig))
             {
-                AllTimeBestLapSeconds = GetBestLapSeconds(SelectedLap.GameName, SelectedLap.CarModel, SelectedLap.TrackNameWithConfig);
+                AllTimeBestLapSeconds = GetBestLapSeconds(lap.GameName, lap.CarModel, lap.TrackNameWithConfig);
                 OnPropertyChanged(nameof(AllTimeBestLapSeconds));
             }
         }
@@ -903,12 +918,25 @@ namespace StatsPlus
                 return;
             }
 
-            if (HasLapRepository)
+            ClearGameData(SelectedGameHistoryTab.GameName);
+        }
+
+        internal void ClearGameData(string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(gameName))
             {
-                _liteDbRepository.DeleteGameData(SelectedGameHistoryTab.GameName);
+                return;
             }
 
-            if (string.Equals(CurrentGameName, SelectedGameHistoryTab.GameName, StringComparison.OrdinalIgnoreCase))
+            if (HasLapRepository)
+            {
+                _liteDbRepository.DeleteGameData(gameName);
+            }
+
+            if (string.Equals(
+                StatsPlusGameName.Normalize(CurrentGameName),
+                StatsPlusGameName.Normalize(gameName),
+                StringComparison.OrdinalIgnoreCase))
             {
                 SessionLapCount = 0;
                 SessionBestLapSeconds = 0.0;
@@ -918,7 +946,7 @@ namespace StatsPlus
                 LastSector3Seconds = 0.0;
                 AllTimeBestLapSeconds = 0.0;
                 OnPropertyChanged(nameof(AllTimeBestLapSeconds));
-                DataStatus = $"Cleared stored data for {SelectedGameHistoryTab.GameName}";
+                DataStatus = $"Cleared stored data for {gameName}";
             }
 
             SelectedLap = null;
@@ -1301,22 +1329,17 @@ namespace StatsPlus
 
         internal static object ResolveSelectedTopLevelTab(
             object previousSelectedTopLevelTab,
-            IReadOnlyList<GameHistoryTab> refreshedTabs,
+            StatsPlusHistoryTab historyTab,
             StatsPlusSettingsTab settingsTab)
         {
+            if (historyTab == null)
+            {
+                throw new ArgumentNullException(nameof(historyTab));
+            }
+
             if (settingsTab == null)
             {
                 throw new ArgumentNullException(nameof(settingsTab));
-            }
-
-            if (previousSelectedTopLevelTab is GameHistoryTab previousGameTab)
-            {
-                GameHistoryTab matchingTab = refreshedTabs?.FirstOrDefault(tab =>
-                    string.Equals(tab.GameName, previousGameTab.GameName, StringComparison.OrdinalIgnoreCase));
-                if (matchingTab != null)
-                {
-                    return matchingTab;
-                }
             }
 
             if (previousSelectedTopLevelTab is StatsPlusSettingsTab)
@@ -1324,7 +1347,7 @@ namespace StatsPlus
                 return settingsTab;
             }
 
-            return refreshedTabs?.FirstOrDefault() ?? (object)settingsTab;
+            return historyTab;
         }
 
         private void PublishLapProperties(PluginManager pluginManager)
@@ -1443,6 +1466,22 @@ namespace StatsPlus
             }
         }
 
+        private void RefreshGameOptions()
+        {
+            GameOptions.Clear();
+            foreach (IStatsPlusGameProfile profile in _gameProfiles.SupportedProfiles.OrderBy(item => item.DisplayName))
+            {
+                string settingsKey = profile.SettingsKey;
+                GameOptions.Add(new GameSettingsOption(
+                    settingsKey,
+                    profile.DisplayName,
+                    () => GetRecordingEnabled(settingsKey),
+                    isEnabled => SetRecordingEnabled(settingsKey, isEnabled),
+                    () => GetGameDebugLoggingEnabled(settingsKey),
+                    isEnabled => UpdateGameDebugLoggingSetting(settingsKey, isEnabled)));
+            }
+        }
+
         private void UpdateGameDebugLoggingSetting(string settingsKey, bool isEnabled)
         {
             if (string.IsNullOrWhiteSpace(settingsKey))
@@ -1456,6 +1495,69 @@ namespace StatsPlus
             }
 
             Settings.GameDebugLogging[settingsKey] = isEnabled;
+        }
+
+        private bool GetGameDebugLoggingEnabled(string settingsKey)
+        {
+            return Settings.GameDebugLogging != null &&
+                Settings.GameDebugLogging.TryGetValue(settingsKey, out bool configuredEnabled) &&
+                configuredEnabled;
+        }
+
+        private bool GetRecordingEnabled(string settingsKey)
+        {
+            switch (settingsKey)
+            {
+                case "assettocorsa":
+                    return Settings.RecordAssettoCorsa;
+                case "assettocorsacompetizione":
+                    return Settings.RecordAssettoCorsaCompetizione;
+                case "assettocorsaevo":
+                    return Settings.RecordAssettoCorsaEvo;
+                case "automobilista2":
+                    return Settings.RecordAutomobilista2;
+                case "iracing":
+                    return Settings.RecordIRacing;
+                case "lmu":
+                    return Settings.RecordLeMansUltimate;
+                case "rfactor2":
+                    return Settings.RecordRFactor2;
+                case "raceroomracingexperience":
+                    return Settings.RecordR3E;
+                default:
+                    return false;
+            }
+        }
+
+        private void SetRecordingEnabled(string settingsKey, bool isEnabled)
+        {
+            switch (settingsKey)
+            {
+                case "assettocorsa":
+                    Settings.RecordAssettoCorsa = isEnabled;
+                    break;
+                case "assettocorsacompetizione":
+                    Settings.RecordAssettoCorsaCompetizione = isEnabled;
+                    break;
+                case "assettocorsaevo":
+                    Settings.RecordAssettoCorsaEvo = isEnabled;
+                    break;
+                case "automobilista2":
+                    Settings.RecordAutomobilista2 = isEnabled;
+                    break;
+                case "iracing":
+                    Settings.RecordIRacing = isEnabled;
+                    break;
+                case "lmu":
+                    Settings.RecordLeMansUltimate = isEnabled;
+                    break;
+                case "rfactor2":
+                    Settings.RecordRFactor2 = isEnabled;
+                    break;
+                case "raceroomracingexperience":
+                    Settings.RecordR3E = isEnabled;
+                    break;
+            }
         }
 
         private void RemoveUnsupportedGameDebugLoggingSettings()
