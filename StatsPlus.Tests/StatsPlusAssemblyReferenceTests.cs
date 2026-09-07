@@ -27,6 +27,16 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void StatsPlusPlugin_ExposesSemanticVersionDisplayString()
+        {
+            StatsPlusPlugin plugin = new StatsPlusPlugin();
+
+            Assert.IsTrue(
+                System.Text.RegularExpressions.Regex.IsMatch(plugin.PluginVersionDisplay, @"^\d+\.\d+\.\d+$"),
+                "The Settings tab should show a major.minor.patch semantic version string without extra build metadata.");
+        }
+
+        [TestMethod]
         public void SimHubPluginStub_ExposesPluginManagerSetter()
         {
             PropertyInfo pluginManagerProperty = typeof(IPlugin).GetProperty(

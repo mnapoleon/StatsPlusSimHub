@@ -6,6 +6,8 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <Version Condition="'$(Version)' == ''">0.0.0-local</Version>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">$(Version)</InformationalVersion>
     <AssemblyName>StatsPlus</AssemblyName>
     <RootNamespace>StatsPlus</RootNamespace>
     <SimHubReferencePath Condition="'$(SimHubReferencePath)' == ''">C:\Program Files (x86)\SimHub\</SimHubReferencePath>

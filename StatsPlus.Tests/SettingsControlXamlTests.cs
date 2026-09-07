@@ -82,6 +82,17 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void SettingsTemplate_ShowsPluginVersionInAboutSection()
+        {
+            string xaml = File.ReadAllText(FindSettingsControlXamlPath());
+            string settingsTemplate = ExtractTemplate(xaml, "local:StatsPlusSettingsTab");
+            string aboutSection = ExtractSection(settingsTemplate, "About");
+
+            StringAssert.Contains(aboutSection, "Text=\"Version\"");
+            StringAssert.Contains(aboutSection, "Text=\"{Binding DataContext.PluginVersionDisplay, ElementName=Root}\"");
+        }
+
+        [TestMethod]
         public void HistoryTemplate_ContainsNestedGameTabs()
         {
             string xaml = File.ReadAllText(FindSettingsControlXamlPath());
