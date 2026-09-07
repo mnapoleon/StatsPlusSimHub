@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.IO;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows;
@@ -25,7 +26,7 @@ namespace StatsPlus
         private const string SettingsFileName = "StatsPlus.settings.json";
         private const string LiteDbDataFileName = "StatsPlus.laps.ldb";
         private const string DiagnosticLogFileName = "StatsPlus.diagnostics.log";
-        private const string Version = "0.2.0";
+        private static readonly string Version = ResolvePluginVersion();
 
         private bool _hasLoggedDataError;
         private string _settingsPath = string.Empty;
@@ -214,6 +215,17 @@ namespace StatsPlus
         public string LiveStatusLabel => IsTelemetryActive ? "Recording" : "Standby";
 
         public Brush StatusSectionForeground => IsTelemetryActive ? Brushes.LimeGreen : Brushes.Red;
+
+        public string PluginVersionDisplay
+        {
+            get
+            {
+                string versionCore = Version.Split('+')[0].Split('-')[0];
+                return System.Version.TryParse(versionCore, out System.Version parsedVersion)
+                    ? $"{parsedVersion.Major}.{parsedVersion.Minor}.{parsedVersion.Build}"
+                    : versionCore;
+            }
+        }
 
         public bool IsTelemetryActive
         {
@@ -1401,6 +1413,22 @@ namespace StatsPlus
         private static double ToSeconds(TimeSpan? value)
         {
             return value.HasValue ? value.Value.TotalSeconds : 0.0;
+        }
+
+        private static string ResolvePluginVersion()
+        {
+            Assembly assembly = typeof(StatsPlusPlugin).Assembly;
+            AssemblyInformationalVersionAttribute informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+            if (!string.IsNullOrWhiteSpace(informationalVersion?.InformationalVersion))
+            {
+                string version = informationalVersion.InformationalVersion.Trim();
+                int plusIndex = version.IndexOf('+');
+                return plusIndex >= 0
+                    ? version.Substring(0, plusIndex)
+                    : version;
+            }
+
+            return assembly.GetName().Version?.ToString() ?? "0.0.0";
         }
 
         private void InferSectorLayout(string gameName, double lapTime, ref double sector1, ref double sector2, ref double sector3)

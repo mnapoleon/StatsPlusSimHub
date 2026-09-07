@@ -331,6 +331,19 @@
                             <styles:SHSection Title="About">
                                 <StackPanel Margin="12">
                                     <TextBlock FontWeight="Bold" Text="StatsPlus" />
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Margin="0,0,12,0"
+                                                   VerticalAlignment="Center"
+                                                   Text="Version" />
+                                        <TextBlock Grid.Column="1"
+                                                   VerticalAlignment="Center"
+                                                   Text="{Binding DataContext.PluginVersionDisplay, ElementName=Root}" />
+                                    </Grid>
                                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap">
                                         Records lap and sector times for the active game using a local LiteDB lap history store.
                                     </TextBlock>
