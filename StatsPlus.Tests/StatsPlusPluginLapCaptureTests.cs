@@ -215,6 +215,32 @@ namespace StatsPlus.Tests
         }
 
         [TestMethod]
+        public void DataUpdate_DoesNotRecordRaceRoomStaleLastLapTimeAfterCompletedLapReset()
+        {
+            var plugin = CreateInitializedPlugin();
+            var pluginManager = _pluginManager;
+
+            SendUpdate(plugin, pluginManager, 0, 0, 0.0, 0.0, gameName: "RRRE", carModel: "Mazda MX-5 CUP 2019 ND2", trackName: "Bathurst Circuit", trackNameWithConfig: "Bathurst Circuit-Mount Panorama");
+            SendUpdate(plugin, pluginManager, 0, 1, 0.0, 0.0, 43.333, 48.828, gameName: "RRRE", carModel: "Mazda MX-5 CUP 2019 ND2", trackName: "Bathurst Circuit", trackNameWithConfig: "Bathurst Circuit-Mount Panorama");
+            SendUpdate(plugin, pluginManager, 1, 1, 0.0, 156.604, gameName: "RRRE", carModel: "Mazda MX-5 CUP 2019 ND2", trackName: "Bathurst Circuit", trackNameWithConfig: "Bathurst Circuit-Mount Panorama");
+
+            SendUpdate(plugin, pluginManager, 1, 0, 156.604, 0.0, gameName: "RRRE", carModel: "Mazda MX-5 CUP 2019 ND2", trackName: "Bathurst Circuit", trackNameWithConfig: "Bathurst Circuit-Mount Panorama");
+            SendUpdate(plugin, pluginManager, 0, 1, 0.0, 156.604, gameName: "RRRE", carModel: "Mazda MX-5 CUP 2019 ND2", trackName: "Bathurst Circuit", trackNameWithConfig: "Bathurst Circuit-Mount Panorama");
+            SendUpdate(plugin, pluginManager, 1, 1, 156.604, 156.604, gameName: "RRRE", carModel: "Mazda MX-5 CUP 2019 ND2", trackName: "Bathurst Circuit", trackNameWithConfig: "Bathurst Circuit-Mount Panorama");
+
+            var summary = plugin.GameHistoryTabs.Single().Tracks.Single();
+            plugin.SelectedTrackSummary = summary;
+
+            var laps = plugin.SelectedTrackLaps.OrderBy(lap => lap.TimestampUtc).ToList();
+            string lapSummary = string.Join(", ", laps.Select(lap => $"{lap.LapNumber}:{lap.LapTimeSeconds:F3}:{lap.Sector1Seconds:F3}:{lap.Sector2Seconds:F3}"));
+
+            Assert.AreEqual(1, laps.Count, lapSummary);
+            Assert.AreEqual(156.604, laps[0].LapTimeSeconds, 0.0001, lapSummary);
+            Assert.AreEqual(43.333, laps[0].Sector1Seconds, 0.0001, lapSummary);
+            Assert.AreEqual(48.828, laps[0].Sector2Seconds, 0.0001, lapSummary);
+        }
+
+        [TestMethod]
         public void DataUpdate_WritesStatsPlusDiagnosticLogForLapCaptureEvents()
         {
             var plugin = CreateInitializedPlugin();

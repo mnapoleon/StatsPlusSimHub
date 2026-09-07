@@ -53,6 +53,7 @@ namespace StatsPlus
         private int _pendingCompletedLapCount = -1;
         private double _pendingObservedLastLapSeconds = -1.0;
         private bool _pendingLastLapTimeNeedsRefresh;
+        private bool _completedLapCountResetSinceLastSavedLap;
         private string _lastPendingWaitReason = string.Empty;
         private double _capturedSector1Seconds;
         private double _capturedSector2Seconds;
@@ -1022,6 +1023,7 @@ namespace StatsPlus
             _capturedSector2 = false;
             _pendingLapCapture = false;
             _pendingCompletedLapCount = -1;
+            _completedLapCountResetSinceLastSavedLap = false;
             _lastPendingWaitReason = string.Empty;
             _bestSector1Seconds = 0.0;
             _bestSector2Seconds = 0.0;
@@ -1099,6 +1101,18 @@ namespace StatsPlus
                 return;
             }
 
+            if (data.NewData.CompletedLaps < data.OldData.CompletedLaps)
+            {
+                _completedLapCountResetSinceLastSavedLap = true;
+                ClearPendingLapCapture(
+                    $"completed-lap-count-reset oldCompleted={data.OldData.CompletedLaps} newCompleted={data.NewData.CompletedLaps}");
+                _capturedSector1Seconds = 0.0;
+                _capturedSector2Seconds = 0.0;
+                _capturedSector1 = false;
+                _capturedSector2 = false;
+                return;
+            }
+
             if (data.NewData.CompletedLaps != data.OldData.CompletedLaps && data.NewData.CompletedLaps >= 1)
             {
                 WriteDiagnosticLog(
@@ -1114,7 +1128,14 @@ namespace StatsPlus
                 bool hasProfileSectorEvidence =
                     profile.UsesCapturedSectorsAsLapBoundaryEvidence &&
                     (_capturedSector1 || _capturedSector2);
+                bool hasAnySectorEvidence = _capturedSector1 || _capturedSector2;
+                bool hasStaleLastLapTimeAfterReset =
+                    _completedLapCountResetSinceLastSavedLap &&
+                    LastLapSeconds > 0 &&
+                    AreClose(_pendingObservedLastLapSeconds, LastLapSeconds) &&
+                    !hasAnySectorEvidence;
                 _pendingLastLapTimeNeedsRefresh = _pendingObservedLastLapSeconds <= 0 ||
+                    hasStaleLastLapTimeAfterReset ||
                     (AreClose(_pendingObservedLastLapSeconds, previousLastLapSeconds) &&
                      LastLapSeconds > 0 &&
                      AreClose(_pendingObservedLastLapSeconds, LastLapSeconds) &&
@@ -1208,6 +1229,7 @@ namespace StatsPlus
                 "PENDING SAVED",
                 $"lap={lap.LapNumber} lapTime={FormatSeconds(lap.LapTimeSeconds)} isValid={lap.IsValid} sector1={FormatSeconds(lap.Sector1Seconds)} sector2={FormatSeconds(lap.Sector2Seconds)} sector3={FormatSeconds(lap.Sector3Seconds)} sessionLapCount={SessionLapCount} contextGame={gameName} contextCar=\"{carModel}\" contextTrack=\"{trackName}\" contextTrackConfig=\"{trackNameWithConfig}\"");
 
+            _completedLapCountResetSinceLastSavedLap = false;
             ClearPendingLapCapture();
             _capturedSector1Seconds = 0.0;
             _capturedSector2Seconds = 0.0;
