@@ -156,7 +156,7 @@ namespace StatsPlus.Tests
                     TrackName = "Le Mans",
                     TrackNameWithConfig = "Le Mans - 24h",
                     CompletedLaps = 0,
-                    LastLapTime = null,
+                    LastLapTime = TimeSpan.Zero,
                     IsLapValid = true
                 }
             };

@@ -8,6 +8,7 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AssemblyName>StatsPlus</AssemblyName>
     <RootNamespace>StatsPlus</RootNamespace>
+    <SimHubReferencePath Condition="'$(SimHubReferencePath)' == ''">C:\Program Files (x86)\SimHub\</SimHubReferencePath>
     <SimHubInstallPath Condition="'$(SimHubInstallPath)' == ''">C:\Program Files (x86)\SimHub\</SimHubInstallPath>
     <StartAction>Program</StartAction>
     <StartProgram>$(SimHubInstallPath)SimHubWPF.exe</StartProgram>
@@ -15,8 +16,8 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Test'">
-    <UseSimHubSdkStubs>true</UseSimHubSdkStubs>
     <SimHubInstallPath>C:\does-not-exist</SimHubInstallPath>
+    <UseSimHubSdkStubs>true</UseSimHubSdkStubs>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,38 +26,43 @@
 
   <ItemGroup Condition="'$(UseSimHubSdkStubs)' != 'true'">
     <Reference Include="SimHub.Plugins">
-      <HintPath>C:\Program Files (x86)\SimHub\SimHub.Plugins.dll</HintPath>
+      <HintPath>$(SimHubReferencePath)SimHub.Plugins.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="GameReaderCommon">
-      <HintPath>C:\Program Files (x86)\SimHub\GameReaderCommon.dll</HintPath>
+      <HintPath>$(SimHubReferencePath)GameReaderCommon.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="MahApps.Metro">
-      <HintPath>C:\Program Files (x86)\SimHub\MahApps.Metro.dll</HintPath>
+      <HintPath>$(SimHubReferencePath)MahApps.Metro.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>C:\Program Files (x86)\SimHub\Newtonsoft.Json.dll</HintPath>
+      <HintPath>$(SimHubReferencePath)Newtonsoft.Json.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="SimHub.Logging">
-      <HintPath>C:\Program Files (x86)\SimHub\SimHub.Logging.dll</HintPath>
+      <HintPath>$(SimHubReferencePath)SimHub.Logging.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="log4net">
-      <HintPath>C:\Program Files (x86)\SimHub\log4net.dll</HintPath>
+      <HintPath>$(SimHubReferencePath)log4net.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(UseSimHubSdkStubs)' == 'true'">
     <ProjectReference Include="..\SdkStubs\SimHub.Plugins\SimHub.Plugins.csproj" />
+    <ProjectReference Include="..\SdkStubs\SimHub.Logging\SimHub.Logging.csproj" />
     <ProjectReference Include="..\SdkStubs\GameReaderCommon\GameReaderCommon.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="LiteDB" Version="4.1.4" />
+    <PackageReference Include="log4net" Version="2.0.15">
+      <!-- SimHub.Logging.Current exposes log4net.ILog from SimHub's runtime version. -->
+      <NoWarn>NU1902</NoWarn>
+    </PackageReference>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 

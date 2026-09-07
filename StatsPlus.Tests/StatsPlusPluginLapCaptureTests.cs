@@ -316,7 +316,7 @@ namespace StatsPlus.Tests
                 TrackName = trackName,
                 TrackNameWithConfig = trackNameWithConfig,
                 CompletedLaps = completedLaps,
-                LastLapTime = lastLapSeconds > 0 ? TimeSpan.FromSeconds(lastLapSeconds) : (TimeSpan?)null,
+                LastLapTime = lastLapSeconds > 0 ? TimeSpan.FromSeconds(lastLapSeconds) : TimeSpan.Zero,
                 Sector1Time = sector1Seconds > 0 ? TimeSpan.FromSeconds(sector1Seconds) : (TimeSpan?)null,
                 Sector2Time = sector2Seconds > 0 ? TimeSpan.FromSeconds(sector2Seconds) : (TimeSpan?)null,
                 IsLapValid = true
