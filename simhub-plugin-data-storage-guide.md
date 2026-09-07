@@ -147,6 +147,7 @@ That pattern is a good baseline, but it is not sufficient for every sim. In veri
 - `CompletedLaps` can advance from `0 -> 1` for an incomplete out lap while `LastLapTime` is still empty.
 - After a lap boundary, `LastLapTime` can briefly remain at the previous lap's value before the real completed-lap time arrives.
 - A repeated lap-time tick can arrive before fresh sector splits, which produces a duplicated lap time with `0` sector values if you finalize immediately.
+- RaceRoom can reset `CompletedLaps` after an in-game session restart and then report `0 -> 1` while `LastLapTime` still contains the previously saved lap. Treat that first boundary as stale unless the lap time changes or fresh sector evidence appears.
 
 For `RFactor2`-family games, including `LMU`, prefer a queued finalize flow instead of saving immediately on the `CompletedLaps` change:
 
