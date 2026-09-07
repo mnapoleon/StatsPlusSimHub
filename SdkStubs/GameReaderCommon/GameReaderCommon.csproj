@@ -4,5 +4,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>GameReaderCommon</AssemblyName>
     <RootNamespace>GameReaderCommon</RootNamespace>
+    <!-- Match SimHub's runtime assembly identity; release builds pass /p:Version for StatsPlus. -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
   </PropertyGroup>
 </Project>
