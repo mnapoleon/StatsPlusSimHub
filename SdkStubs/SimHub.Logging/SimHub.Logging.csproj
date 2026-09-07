@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SimHub.Logging</AssemblyName>
+    <RootNamespace>SimHub</RootNamespace>
+    <!-- Match SimHub's runtime assembly identity. -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="log4net" Version="2.0.15">
+      <!-- Match the log4net assembly identity exposed by SimHub.Logging.Current. -->
+      <NoWarn>NU1902</NoWarn>
+    </PackageReference>
+  </ItemGroup>
+</Project>
