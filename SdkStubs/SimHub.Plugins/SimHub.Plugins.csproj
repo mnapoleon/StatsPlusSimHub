@@ -5,6 +5,8 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>SimHub.Plugins</AssemblyName>
     <RootNamespace>SimHub.Plugins</RootNamespace>
+    <!-- Match SimHub's runtime assembly identity; release builds pass /p:Version for StatsPlus. -->
+    <AssemblyVersion>1.0.9735.26972</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
