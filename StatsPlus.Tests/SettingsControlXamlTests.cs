@@ -14,6 +14,10 @@ namespace StatsPlus.Tests
 
             StringAssert.Contains(xaml, "Header=\"Circuit Name\" Binding=\"{Binding CircuitNameDisplay}\"");
             StringAssert.Contains(xaml, "Header=\"Circuit Layout\" Binding=\"{Binding CircuitLayoutDisplay}\"");
+            StringAssert.Contains(xaml, "Header=\"Last Session Date\" Binding=\"{Binding LastRecordedUtc, StringFormat={}{0:u}}\"");
+            StringAssert.Contains(xaml, "Header=\"Session Date\" IsReadOnly=\"True\" Binding=\"{Binding TimestampUtc, StringFormat={}{0:u}}\"");
+            Assert.IsFalse(xaml.Contains("Header=\"Last UTC\""));
+            Assert.IsFalse(xaml.Contains("Header=\"Recorded UTC\""));
             Assert.IsFalse(xaml.Contains("Header=\"Track\" Binding=\"{Binding TrackName}\""));
             Assert.IsFalse(xaml.Contains("Header=\"Variation\" Binding=\"{Binding TrackNameWithConfigDisplay}\""));
         }
