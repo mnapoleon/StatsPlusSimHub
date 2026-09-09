@@ -158,7 +158,7 @@
                                                     </Style>
                                                 </DataGridTextColumn.ElementStyle>
                                             </DataGridTextColumn>
-                                            <DataGridTextColumn Header="Last UTC" Binding="{Binding LastRecordedUtc, StringFormat={}{0:u}}" Width="140" />
+                                            <DataGridTextColumn Header="Last Session Date" Binding="{Binding LastRecordedUtc, StringFormat={}{0:u}}" Width="165" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                                 </StackPanel>
@@ -190,7 +190,7 @@
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTextColumn Header="Recorded UTC" IsReadOnly="True" Binding="{Binding TimestampUtc, StringFormat={}{0:u}}" Width="140" />
+                                            <DataGridTextColumn Header="Session Date" IsReadOnly="True" Binding="{Binding TimestampUtc, StringFormat={}{0:u}}" Width="140" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                                 </StackPanel>
